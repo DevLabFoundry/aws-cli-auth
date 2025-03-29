@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/user"
 
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
-	"github.com/dnitsch/aws-cli-auth/internal/web"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 	"github.com/spf13/cobra"
 )
 

@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
-	"github.com/dnitsch/aws-cli-auth/internal/web"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 )
 
 func mockIdpHandler(t *testing.T) http.Handler {
@@ -82,6 +82,8 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 }
 
 func Test_WebUI_with_succesful_saml(t *testing.T) {
+	t.Parallel()
+
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{BaseConfig: credentialexchange.BaseConfig{}}
@@ -105,6 +107,8 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 }
 
 func Test_WebUI_timeout_and_return_error(t *testing.T) {
+	t.Parallel()
+
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{BaseConfig: credentialexchange.BaseConfig{}}
@@ -126,6 +130,8 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 }
 
 func Test_ClearCache(t *testing.T) {
+	// t.Parallel()
+
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
 	tempDir, _ := os.MkdirTemp(os.TempDir(), "web-clear-saml-tester")
@@ -139,7 +145,6 @@ func Test_ClearCache(t *testing.T) {
 	if err := webUi.ForceKill(tempDir); err != nil {
 		t.Errorf("expected <nil>, got: %s", err)
 	}
-
 }
 
 func mockSsoHandler(t *testing.T) http.Handler {
@@ -172,6 +177,8 @@ func mockSsoHandler(t *testing.T) http.Handler {
 }
 
 func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
+	t.Parallel()
+
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{
@@ -200,6 +207,8 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 }
 
 func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
+	t.Parallel()
+
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{

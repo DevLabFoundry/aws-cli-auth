@@ -1,4 +1,4 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/dnitsch/aws-cli-auth)](https://goreportcard.com/report/github.com/dnitsch/aws-cli-auth)
+[![Go Report Card](https://goreportcard.com/badge/github.com/DevLabFoundry/aws-cli-auth)](https://goreportcard.com/report/github.com/DevLabFoundry/aws-cli-auth)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=dnitsch_aws-cli-auth&metric=bugs)](https://sonarcloud.io/summary/new_code?id=dnitsch_aws-cli-auth)
 [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=dnitsch_aws-cli-auth&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=dnitsch_aws-cli-auth)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=dnitsch_aws-cli-auth&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=dnitsch_aws-cli-auth)

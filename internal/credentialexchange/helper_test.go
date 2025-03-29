@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	ini "gopkg.in/ini.v1"
 )
 

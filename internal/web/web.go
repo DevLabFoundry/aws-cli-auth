@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	ps "github.com/mitchellh/go-ps"

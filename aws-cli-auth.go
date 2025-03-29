@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/dnitsch/aws-cli-auth/cmd"
+	"github.com/DevLabFoundry/aws-cli-auth/cmd"
 )
 
 func main() {

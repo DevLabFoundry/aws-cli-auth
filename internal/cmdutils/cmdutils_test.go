@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DevLabFoundry/aws-cli-auth/internal/cmdutils"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
-	"github.com/dnitsch/aws-cli-auth/internal/cmdutils"
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
-	"github.com/dnitsch/aws-cli-auth/internal/web"
 )
 
 func AwsMockHandler(t *testing.T, mux *http.ServeMux) http.Handler {
@@ -186,6 +186,8 @@ func (s *mockSecretApi) SaveAWSCredential(cred *credentialexchange.AWSCredential
 }
 
 func Test_GetSamlCreds_With(t *testing.T) {
+	t.Parallel()
+
 	ttests := map[string]struct {
 		config      func(t *testing.T) credentialexchange.CredentialConfig
 		handler     func(t *testing.T, awsMock bool) http.Handler
@@ -466,6 +468,7 @@ func mockSsoHandler(t *testing.T) http.Handler {
 }
 
 func Test_Get_SSO_Creds_with(t *testing.T) {
+	t.Parallel()
 	ttests := map[string]struct {
 		config      func(t *testing.T) credentialexchange.CredentialConfig
 		handler     func(t *testing.T) http.Handler

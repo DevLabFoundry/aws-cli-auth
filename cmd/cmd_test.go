@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/dnitsch/aws-cli-auth/cmd"
+	"github.com/DevLabFoundry/aws-cli-auth/cmd"
 )
 
 func Test_helpers_for_command(t *testing.T) {
