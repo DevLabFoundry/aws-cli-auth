@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/aws/smithy-go"
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 )
 
 type mockAuthApi struct {

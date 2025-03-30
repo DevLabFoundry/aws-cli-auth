@@ -1,4 +1,4 @@
-OWNER := dnitsch
+OWNER := DevLabFoundry
 NAME := aws-cli-auth
 GIT_TAG := 0.11.11
 VERSION := v$(GIT_TAG)
@@ -9,10 +9,9 @@ LDFLAGS := -ldflags="-s -w -X \"github.com/$(OWNER)/$(NAME)/cmd.Version=$(VERSIO
 .PHONY: test test_ci tidy install buildprep build buildmac buildwin
 
 test: test_prereq
-	go test ./... -v -mod=readonly -coverprofile=.coverage/out -race > .coverage/test.out ; \
+	go test ./... -v -mod=readonly -coverprofile=.coverage/out -race | tee .coverage/test.out ; \
 	cat .coverage/test.out | go-junit-report > .coverage/report-junit.xml ; \
-	gocov convert .coverage/out | gocov-xml > .coverage/report-cobertura.xml ; \
-	cat .coverage/test.out
+	gocov convert .coverage/out | gocov-xml > .coverage/report-cobertura.xml
 
 test_ci:
 	go test ./... -mod=readonly

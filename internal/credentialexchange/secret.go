@@ -68,6 +68,10 @@ func (k *keyRingImpl) Delete(service, user string) error {
 	return keyring.Delete(service, user)
 }
 
+func (k *keyRingImpl) DeleteAll(service string) error {
+	return keyring.DeleteAll(service)
+}
+
 func NewSecretStore(roleArn, namer, baseDir, username string) (*SecretStore, error) {
 	lockDir := baseDir + "/aws-clie-auth-lock"
 	locker, err := file_locker.NewFileLocker(lockDir)

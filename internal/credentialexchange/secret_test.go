@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dnitsch/aws-cli-auth/internal/credentialexchange"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/werf/lockgate"
 	"github.com/zalando/go-keyring"
 )
@@ -35,9 +35,10 @@ func TestConvertKeyToRole(t *testing.T) {
 }
 
 type mockKeyRing struct {
-	set    func(service, user, password string) error
-	get    func(service, user string) (string, error)
-	delete func(service, user string) error
+	set       func(service, user, password string) error
+	get       func(service, user string) (string, error)
+	delete    func(service, user string) error
+	deleteAll func(service string) error
 }
 
 func (m *mockKeyRing) Set(service, user, password string) error {
@@ -48,6 +49,9 @@ func (m *mockKeyRing) Get(service, user string) (string, error) {
 }
 func (m *mockKeyRing) Delete(service, user string) error {
 	return m.delete(service, user)
+}
+func (m *mockKeyRing) DeleteAll(service string) error {
+	return m.deleteAll(service)
 }
 
 type mockLocker struct {
