@@ -39,6 +39,7 @@ jobs:
         run: |
           # Chromium dependencies
           apt-get update && apt-get install -y jq git \
+          zip unzip \
           libnss3 \
           libxss1 \
           libasound2 \
