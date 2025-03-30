@@ -1,4 +1,4 @@
-OWNER := dnitsch
+OWNER := DevLabFoundry
 NAME := aws-cli-auth
 GIT_TAG := 0.11.11
 VERSION := v$(GIT_TAG)
