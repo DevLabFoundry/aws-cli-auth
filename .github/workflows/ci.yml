@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  pull_request:
+    branches: [ master, main ]
   push:
     branches: [ master, main ]
 
@@ -15,38 +17,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: set global dir
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v1
         with:
           versionSpec: '5.x'
-      - name: set global dir
-        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
-
       - name: Set SemVer Version
         uses: gittools/actions/gitversion/execute@v1
         id: gitversion
-
-      - name: echo VERSIONS
-        run: | 
-          echo "REVISION  -> $GITHUB_SHA"
-          echo "VERSION -> $GITVERSION_SEMVER"
-  test:
+  pr:
     runs-on: ubuntu-latest
     container:
       image: golang:1.24-bookworm
     needs: set-version
     env:
+      REVISION: $GITHUB_SHA
       SEMVER: ${{ needs.set-version.outputs.semVer }}
-      GIT_TAG: ${{ needs.set-version.outputs.semVer }}
-      GOVCS: false
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
       - name: install deps
         run: |
           # Chromium dependencies
-          apt update && apt install -y jq git \
+          apt-get update && apt-get install -y jq git \
+          zip unzip \
           libnss3 \
           libxss1 \
           libasound2 \
@@ -62,21 +57,17 @@ jobs:
           make REVISION=$GITHUB_SHA test
       - name: Publish Junit style Test Report
         uses: mikepenz/action-junit-report@v3
-        # always run even if the previous step fails
-        if: always() 
+        if: always() # always run even if the previous step fails
         with:
-          report_paths: '**/.coverage/report-junit.xml'
+          report_paths: '**/report-junit.xml'
       - name: Analyze with SonarCloud         
         # You can pin the exact commit or the version.
         uses: SonarSource/sonarcloud-github-action@master
         env:
-          SEMVER: $SEMVER
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Generate a token on Sonarcloud.io, add it to the secrets of this repo with the name SONAR_TOKEN (Settings > Secrets > Actions > add new repository secret)
         with:
-          # Additional arguments for the sonarcloud scanner
           args:             
-            # mandatory
             -Dsonar.projectVersion=${{ needs.set-version.outputs.semVer }}
             -Dsonar.go.coverage.reportPaths=/github/workspace/.coverage/out
             -Dsonar.go.tests.reportPaths=/github/workspace/.coverage/report-junit.xml
