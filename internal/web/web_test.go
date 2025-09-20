@@ -96,7 +96,7 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10))
+	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 	saml, err := webUi.GetSamlLogin(conf)
 	if err != nil {
 		t.Errorf("expected err to be <nil> got: %s", err)
@@ -121,7 +121,7 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0))
+	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
 	_, err := webUi.GetSamlLogin(conf)
 
 	if !errors.Is(err, web.ErrTimedOut) {
@@ -140,7 +140,7 @@ func Test_ClearCache(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(20))
+	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(20).WithNoSandbox())
 
 	if err := webUi.ForceKill(tempDir); err != nil {
 		t.Errorf("expected <nil>, got: %s", err)
@@ -148,6 +148,7 @@ func Test_ClearCache(t *testing.T) {
 }
 
 func mockSsoHandler(t *testing.T) http.Handler {
+	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -196,7 +197,7 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10))
+	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 	creds, err := webUi.GetSSOCredentials(conf)
 	if err != nil {
 		t.Errorf("expected err to be <nil> got: %s", err)
@@ -226,7 +227,7 @@ func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0))
+	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
 	_, err := webUi.GetSSOCredentials(conf)
 
 	if !errors.Is(err, web.ErrTimedOut) {

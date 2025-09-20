@@ -1,0 +1,82 @@
+import:
+  - https://raw.githubusercontent.com/Ensono/eirctl/refs/heads/main/shared/build/go/eirctl.yaml
+
+contexts:
+  unit:test:
+    container:
+      name: docker.io/golang:1-trixie
+      container_args:
+        - $PWD/.cache:/root/.cache
+      shell: bash
+      shell_args:
+        - -c
+    envfile:
+      exclude:
+        - HOME
+        - GO
+
+pipelines:
+  unit:test:run:
+    - task: unit:test:prereqs
+    - task: unit:test
+      depends_on: unit:test:prereqs
+
+tasks:
+  unit:test:
+    context: unit:test
+    description: Unit test runner needs a bit of extra care in this case to ensure we have all the dependencies
+    command: |
+      apt-get update -y
+      apt-get install -y ca-certificates \
+        fonts-liberation \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libatk1.0-0 \
+        libc6 \
+        libcairo2 \
+        libcups2 \
+        libdbus-1-3 \
+        libexpat1 \
+        libfontconfig1 \
+        libgbm1 \
+        libgcc1 \
+        libglib2.0-0 \
+        libgtk-3-0 \
+        libnspr4 \
+        libnss3 \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libstdc++6 \
+        libx11-6 \
+        libx11-xcb1 \
+        libxcb1 \
+        libxcomposite1 \
+        libxcursor1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxrandr2 \
+        libxrender1 \
+        libxss1 \
+        libxtst6 \
+        lsb-release \
+        wget \
+        xdg-utils
+      mkdir -p .coverage
+      export GOPATH=$PWD/.deps
+      go test $(go list ./... | grep -v /local/) -v -coverpkg=./... -race -mod=readonly -timeout=1m -shuffle=on -buildvcs=false -coverprofile=.coverage/out -count=1 -run=$GO_TEST_RUN_ARGS | tee .coverage/test.out
+      cat .coverage/test.out | go-junit-report &gt; .coverage/report-junit.xml
+      gocov convert .coverage/out | gocov-xml &gt; .coverage/report-cobertura.xml
+
+  unit:test:prereqs:
+    description: Installs coverage and junit tools
+    context: unit:test
+    command: 
+      - |
+        mkdir -p .coverage
+        export GOPATH=$PWD/.deps
+        go install github.com/jstemmer/go-junit-report@v0.9.1 && \
+        go install github.com/axw/gocov/gocov@v1.0.0 && \
+        go install github.com/AlekSi/gocov-xml@v1.0.0
+    # -run ^Test_Saml_timeout$ github.com/DevLabFoundry/aws-cli-auth/cmd

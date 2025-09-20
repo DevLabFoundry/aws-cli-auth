@@ -23,9 +23,10 @@ var (
 type WebConfig struct {
 	datadir string
 	// timeout value in seconds
-	timeout  int32
-	headless bool
-	leakless bool
+	timeout   int32
+	headless  bool
+	leakless  bool
+	noSandbox bool
 }
 
 func NewWebConf(datadir string) *WebConfig {
@@ -46,6 +47,11 @@ func (wc *WebConfig) WithHeadless() *WebConfig {
 	return wc
 }
 
+func (wc *WebConfig) WithNoSandbox() *WebConfig {
+	wc.noSandbox = true
+	return wc
+}
+
 type Web struct {
 	conf     *WebConfig
 	launcher *launcher.Launcher
@@ -59,6 +65,7 @@ func New(conf *WebConfig) *Web {
 		Devtools(false).
 		Headless(conf.headless).
 		UserDataDir(conf.datadir).
+		NoSandbox(conf.noSandbox).
 		Leakless(conf.leakless)
 
 	url := l.MustLaunch()

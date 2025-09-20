@@ -27,3 +27,5 @@ vendor/
 
 .ignore*
 local/
+.deps/
+.cache/

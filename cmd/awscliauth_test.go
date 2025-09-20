@@ -2,13 +2,30 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"testing"
 
 	"github.com/DevLabFoundry/aws-cli-auth/cmd"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 )
 
+func cmdHelperExecutor(t *testing.T, args []string) (stdOut *bytes.Buffer, errOut *bytes.Buffer, err error) {
+	t.Helper()
+	errOut = new(bytes.Buffer)
+	stdOut = new(bytes.Buffer)
+	c := cmd.New()
+	c.WithSubCommands(cmd.SubCommands()...)
+	c.Cmd.SetArgs(args)
+	c.Cmd.SetErr(errOut)
+	c.Cmd.SetOut(stdOut)
+	err = c.Execute(context.Background())
+	return stdOut, errOut, err
+}
+
 func Test_helpers_for_command(t *testing.T) {
+
 	ttests := map[string]struct{}{
 		"clear-cache": {},
 		"saml":        {},
@@ -17,27 +34,23 @@ func Test_helpers_for_command(t *testing.T) {
 	for name := range ttests {
 		t.Run(name, func(t *testing.T) {
 			cmdArgs := []string{name, "--help"}
-			b := new(bytes.Buffer)
-			o := new(bytes.Buffer)
-			cmd := cmd.RootCmd
-			cmd.SetArgs(cmdArgs)
-			cmd.SetErr(b)
-			cmd.SetOut(o)
-			cmd.Execute()
-			err, _ := io.ReadAll(b)
-			if len(err) > 0 {
+			stdOut, errOut, err := cmdHelperExecutor(t, cmdArgs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			errCheck, _ := io.ReadAll(errOut)
+			if len(errCheck) > 0 {
 				t.Fatal("got err, wanted nil")
 			}
-			out, _ := io.ReadAll(o)
-			if len(out) <= 0 {
+			outCheck, _ := io.ReadAll(stdOut)
+			if len(outCheck) <= 0 {
 				t.Fatalf("got empty, wanted a help message")
 			}
 		})
 	}
 }
 
-func Test_Saml(t *testing.T) {
-	t.Skip()
+func Test_Saml_timeout(t *testing.T) {
 	t.Run("standard non sso should fail with incorrect saml URLs", func(t *testing.T) {
 		cmdArgs := []string{"saml", "-p",
 			"https://httpbin.org/anything/app123",
@@ -52,13 +65,8 @@ func Test_Saml(t *testing.T) {
 			"14400",
 			"--reload-before",
 			"120"}
-		b := new(bytes.Buffer)
-		o := new(bytes.Buffer)
-		cmd := cmd.RootCmd
-		cmd.SetArgs(cmdArgs)
-		cmd.SetErr(b)
-		cmd.SetOut(o)
-		if err := cmd.Execute(); err == nil {
+		_, _, err := cmdHelperExecutor(t, cmdArgs)
+		if err == nil && !errors.Is(err, web.ErrTimedOut) {
 			t.Error("got nil, wanted an error")
 		}
 		// err, _ := io.ReadAll(b)
