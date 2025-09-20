@@ -53,7 +53,7 @@ func GetCredsWebUI(ctx context.Context, svc credentialexchange.AuthSamlApi, secr
 // upon successful auth from the IDP.
 // Once credentials are captured they are used in the role assumption process.
 func refreshAwsSsoCreds(ctx context.Context, conf credentialexchange.CredentialConfig, secretStore SecretStorageImpl, svc credentialexchange.AuthSamlApi, webConfig *web.WebConfig) error {
-	webBrowser := web.New(webConfig)
+	webBrowser := web.New(ctx, webConfig)
 	capturedCreds, err := webBrowser.GetSSOCredentials(conf)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func refreshAwsSsoCreds(ctx context.Context, conf credentialexchange.CredentialC
 
 func refreshSamlCreds(ctx context.Context, conf credentialexchange.CredentialConfig, secretStore SecretStorageImpl, svc credentialexchange.AuthSamlApi, webConfig *web.WebConfig) error {
 
-	webBrowser := web.New(webConfig)
+	webBrowser := web.New(ctx, webConfig)
 
 	duration := conf.Duration
 

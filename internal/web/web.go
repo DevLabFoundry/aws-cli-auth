@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
-	ps "github.com/mitchellh/go-ps"
 )
 
 var (
@@ -23,10 +23,11 @@ var (
 type WebConfig struct {
 	datadir string
 	// timeout value in seconds
-	timeout   int32
-	headless  bool
-	leakless  bool
-	noSandbox bool
+	timeout        int32
+	headless       bool
+	leakless       bool
+	noSandbox      bool
+	preferChromium bool
 }
 
 func NewWebConf(datadir string) *WebConfig {
@@ -59,10 +60,17 @@ type Web struct {
 }
 
 // New returns an initialised instance of Web struct
-func New(conf *WebConfig) *Web {
+func New(ctx context.Context, conf *WebConfig) *Web {
+	var l *launcher.Launcher
 
-	l := launcher.New().
-		Devtools(false).
+	if path, found := launcher.LookPath(); (found && path != "") && !conf.preferChromium {
+		l = launcher.New().Bin(path)
+	} else {
+		l = launcher.New()
+	}
+
+	// common set up
+	l.Devtools(false).
 		Headless(conf.headless).
 		UserDataDir(conf.datadir).
 		NoSandbox(conf.noSandbox).
@@ -70,9 +78,14 @@ func New(conf *WebConfig) *Web {
 
 	url := l.MustLaunch()
 
-	browser := rod.New().
+	browser, cancel := rod.New().
 		ControlURL(url).
-		MustConnect().NoDefaultDevice()
+		MustConnect().NoDefaultDevice().WithCancel()
+	go func() {
+		<-ctx.Done()
+		fmt.Println("cancelled")
+		cancel()
+	}()
 
 	return &Web{
 		conf:     conf,
@@ -199,10 +212,6 @@ func (web *Web) MustClose() {
 
 func (web *Web) ForceKill(datadir string) error {
 	errs := []error{}
-
-	if err := checkRodProcess(); err != nil {
-		errs = append(errs, err)
-	}
 	// once processes have been killed
 	// we can remove the datadir
 	if err := os.RemoveAll(datadir); err != nil {
@@ -211,31 +220,6 @@ func (web *Web) ForceKill(datadir string) error {
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs[:])
-	}
-	return nil
-}
-
-// checkRodProcess gets a list running process
-// kills any hanging rod browser process from any previous improprely closed sessions
-func checkRodProcess() error {
-	pids := make([]int, 0)
-	ps, err := ps.Processes()
-	if err != nil {
-		return err
-	}
-	for _, v := range ps {
-		// grab all chromium processes
-		// on windows the name will be reported as `chrome.exe`
-		if strings.Contains(strings.ToLower(v.Executable()), "chrom") {
-			fmt.Fprintf(os.Stderr, "Found process: (%d) and its parent (%d)\n", v.Pid(), v.PPid())
-			pids = append(pids, v.Pid())
-		}
-	}
-	for _, pid := range pids {
-		if proc, _ := os.FindProcess(pid); proc != nil {
-			fmt.Fprintf(os.Stderr, "Process to be killed as part of clean up: %d\n", pid)
-			proc.Kill()
-		}
 	}
 	return nil
 }

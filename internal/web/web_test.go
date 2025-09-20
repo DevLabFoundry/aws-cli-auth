@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -82,7 +83,6 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 }
 
 func Test_WebUI_with_succesful_saml(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
@@ -96,7 +96,7 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 	saml, err := webUi.GetSamlLogin(conf)
 	if err != nil {
 		t.Errorf("expected err to be <nil> got: %s", err)
@@ -107,7 +107,6 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 }
 
 func Test_WebUI_timeout_and_return_error(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
@@ -121,7 +120,7 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
 	_, err := webUi.GetSamlLogin(conf)
 
 	if !errors.Is(err, web.ErrTimedOut) {
@@ -130,8 +129,6 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 }
 
 func Test_ClearCache(t *testing.T) {
-	// t.Parallel()
-
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
 	tempDir, _ := os.MkdirTemp(os.TempDir(), "web-clear-saml-tester")
@@ -140,7 +137,7 @@ func Test_ClearCache(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(20).WithNoSandbox())
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(20).WithNoSandbox())
 
 	if err := webUi.ForceKill(tempDir); err != nil {
 		t.Errorf("expected <nil>, got: %s", err)
@@ -178,7 +175,6 @@ func mockSsoHandler(t *testing.T) http.Handler {
 }
 
 func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
@@ -197,7 +193,7 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 	creds, err := webUi.GetSSOCredentials(conf)
 	if err != nil {
 		t.Errorf("expected err to be <nil> got: %s", err)
@@ -208,7 +204,6 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 }
 
 func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
@@ -227,7 +222,7 @@ func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
 	_, err := webUi.GetSSOCredentials(conf)
 
 	if !errors.Is(err, web.ErrTimedOut) {

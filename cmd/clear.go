@@ -20,6 +20,9 @@ func newClearCmd(r *Root) {
 	cmd := &cobra.Command{
 		Use:   "clear-cache <flags>",
 		Short: "Clears any stored credentials in the OS secret store",
+		Long: `Clears any stored credentials in the OS secret store
+
+NB: Occassionally you may encounter a hanging chromium processes if not using own browser binary, you should kill all the instances of the chromium PIDs`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user, err := user.Current()
 			if err != nil {
