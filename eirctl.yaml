@@ -4,7 +4,7 @@ import:
 contexts:
   unit:test:
     container:
-      name: docker.io/dnitsch/aws-cli-auth-ci:0.2.0
+      name: docker.io/dnitsch/aws-cli-auth-ci:0.3.0
       entrypoint: /usr/bin/env
       shell: sh
       shell_args:
