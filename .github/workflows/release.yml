@@ -39,12 +39,9 @@ jobs:
         run: | 
           echo "REVISION  -> $GITHUB_SHA"
           echo "VERSION -> $GITVERSION_SEMVER"
+
   release:
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.24-bookworm
-      env:
-        FOO: Bar
     needs: set-version
     env:
       SEMVER: ${{ needs.set-version.outputs.semVer }}
@@ -52,18 +49,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: install deps
+
+      - uses: ensono/actions/eirctl-setup@v0.3.1
+        with: 
+          version: latest
+          isPrerelease: false
+
+      - name: git-deps
         run: |
-          apt-get update && apt-get install jq git -y
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.email ${{ github.actor }}-ci@gha.org
           git config user.name ${{ github.actor }}
       - name: release library
         run: |
-          make GIT_TAG=${SEMVER} REVISION=$GITHUB_SHA tag
-      - name: release binary
+           VERSION=${SEMVER} REVISION=$GITHUB_SHA eirctl run tag
+
+      - name: Build binary
         run: |
-          make REVISION=$GITHUB_SHA GIT_TAG=${SEMVER} PAT=${{ secrets.GITHUB_TOKEN }} cross-build
+          eirctl run pipeline bin:release --set Version=${SEMVER} --set Revision=$GITHUB_SHA 
 
       - name: Release
         uses: softprops/action-gh-release@v2.2.1

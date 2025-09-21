@@ -50,6 +50,7 @@ jobs:
       - name: Run linters 
         run: |
           eirctl run vuln:check
+
       - name: Unit Tests
         run: |
           eirctl run test:unit

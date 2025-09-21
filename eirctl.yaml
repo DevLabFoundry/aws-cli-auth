@@ -16,14 +16,19 @@ contexts:
         - TMP
 
 pipelines:
+  build: 
+    - task: build:unix
+    - task: build:win
+      depends_on: build:unix
+
   unit:test:run:
     - task: unit:test:prereqs
     - task: unit:test
       depends_on: unit:test:prereqs
 
-  release:
+  bin:release:
     - task: clean:dir
-    - task: build
+    - pipeline: build
       depends_on: clean:dir
 
 tasks:
@@ -62,27 +67,34 @@ tasks:
       - |
         rm -rf dist/
 
-  build:
+  build:win:
     context: go1x
     description: Builds Go binary
     command:
       - |
         mkdir -p .deps
         ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
-        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}${BUILD_GOARCH}${BINARY_SUFFIX} .
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}${BUILD_GOARCH} .
     variations:
       - BUILD_GOOS: windows
         BUILD_GOARCH: amd64
-        BINARY_SUFFIX: ""
       - BUILD_GOOS: windows
         BUILD_GOARCH: "386"
-        BINARY_SUFFIX: ""
+    variables:
+      RepoOwner: DevLabFoundry
+      BinName: aws-cli-auth
+
+  build:unix:
+    context: go1x
+    description: Builds Go binary
+    command:
+      - |
+        mkdir -p .deps
+        ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}${BUILD_GOARCH} .
+    variations:
       - BUILD_GOOS: darwin
-        BUILD_GOARCH: ""
-        BINARY_SUFFIX: ""
       - BUILD_GOOS: linux
-        BUILD_GOARCH: ""
-        BINARY_SUFFIX: ""
     variables:
       RepoOwner: DevLabFoundry
       BinName: aws-cli-auth
