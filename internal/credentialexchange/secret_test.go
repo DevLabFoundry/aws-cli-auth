@@ -134,7 +134,7 @@ func Test_SecretStore_AWSCredential_(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 
 			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test")
-			os.WriteFile(path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME)), []byte(`
+			_ = os.WriteFile(path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME)), []byte(`
 [role]
 [role.roleArn]
 name = "arn:aws:iam::111122342343:role/DevAdmin"
@@ -212,7 +212,7 @@ func Test_SaveAwsCredential_with(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test")
 			iniFile := path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME))
-			os.WriteFile(iniFile, []byte(`
+			_ = os.WriteFile(iniFile, []byte(`
 [role]
 [role.someotherRole]
 name = "arn:aws:iam::111122342343:role/DevAdmin"
@@ -294,7 +294,7 @@ func Test_ClearAll_with(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test")
 			iniFile := path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME))
-			os.WriteFile(iniFile, []byte(`
+			_ = os.WriteFile(iniFile, []byte(`
 [role]
 [role.someotherRole]
 name = "arn:aws:iam::111122342343:role/DevAdmin"

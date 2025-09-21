@@ -64,6 +64,7 @@ jobs:
       - name: release binary
         run: |
           make REVISION=$GITHUB_SHA GIT_TAG=${SEMVER} PAT=${{ secrets.GITHUB_TOKEN }} cross-build
+
       - name: Release
         uses: softprops/action-gh-release@v2.2.1
         with:
@@ -72,4 +73,4 @@ jobs:
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
           files: ./dist/*
-          prerelease: false
+          prerelease: true

@@ -20,7 +20,7 @@ func mockIdpHandler(t *testing.T) http.Handler {
 		w.Header().Set("Server", "Server")
 		w.Header().Set("X-Amzn-Requestid", "9363fdebc232c348b71c8ba5b59f9a34")
 		// w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head></head>
 <body>
@@ -31,7 +31,7 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 	})
 	mux.HandleFunc("/idp-redirect", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		<head>
 		<script type="text/javascript">
@@ -58,7 +58,7 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 	})
 	mux.HandleFunc("/idp-onload", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		  <body">
 			<div id="message"></div>
@@ -72,7 +72,7 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 	})
 	mux.HandleFunc("/some-app", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		  <body>
 			<div id="message">SomeApp</div>
@@ -129,19 +129,7 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 }
 
 func Test_ClearCache(t *testing.T) {
-	ts := httptest.NewServer(mockIdpHandler(t))
-	defer ts.Close()
-	tempDir, _ := os.MkdirTemp(os.TempDir(), "web-clear-saml-tester")
-
-	defer func() {
-		os.RemoveAll(tempDir)
-	}()
-
-	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(20).WithNoSandbox())
-
-	if err := webUi.ForceKill(tempDir); err != nil {
-		t.Errorf("expected <nil>, got: %s", err)
-	}
+	t.Skip("no longer relevant")
 }
 
 func mockSsoHandler(t *testing.T) http.Handler {
@@ -151,15 +139,15 @@ func mockSsoHandler(t *testing.T) http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Server", "Server")
 		w.Header().Set("X-Amzn-Requestid", "9363fdebc232c348b71c8ba5b59f9a34")
-		w.Write([]byte(``))
+		_, _ = w.Write([]byte(``))
 	})
 	mux.HandleFunc("/fed-endpoint", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`{"roleCredentials":{"accessKeyId":"asdas","secretAccessKey":"sa/08asc62pun9a","sessionToken":"somtoken//////////YO4Dm0aJYq4K2rQ9V0B6yJMsKpkc5fo+iUT6nI99cZWmGFE","expiration":1698943755000}}`))
+		_, _ = w.Write([]byte(`{"roleCredentials":{"accessKeyId":"asdas","secretAccessKey":"sa/08asc62pun9a","sessionToken":"somtoken//////////YO4Dm0aJYq4K2rQ9V0B6yJMsKpkc5fo+iUT6nI99cZWmGFE","expiration":1698943755000}}`))
 	})
 	mux.HandleFunc("/idp-onload", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		  <body">
 			<div id="message"></div>

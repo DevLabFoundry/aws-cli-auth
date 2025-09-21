@@ -133,7 +133,7 @@ func newSamlCmd(r *Root) {
 	sc.cmd.PersistentFlags().StringVarP(&flags.providerUrl, "provider", "p", "", `Saml Entity StartSSO Url.
 This is the URL your Idp will make the first call to e.g.: https://company-xyz.okta.com/home/amazon_aws/12345SomeRandonId6789
 `)
-	sc.cmd.MarkPersistentFlagRequired("provider")
+	_ = sc.cmd.MarkPersistentFlagRequired("provider")
 	sc.cmd.PersistentFlags().StringVarP(&flags.principalArn, "principal", "", "", `Principal Arn of the SAML IdP in AWS
 You should find it in the IAM portal e.g.: arn:aws:iam::1234567891012:saml-provider/MyCompany-Idp
 `)

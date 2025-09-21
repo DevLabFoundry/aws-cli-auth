@@ -75,6 +75,6 @@ Returns the same JSON object as the call to the AWS CLI for any of the sts Assum
 
 	cmd.PersistentFlags().StringVarP(&flags.method, "method", "m", "WEB_ID", "Runs a specific credentialProvider as opposed to relying on the default chain provider fallback")
 	cmd.PersistentFlags().StringVarP(&flags.role, "role", "r", "", `Set the role you want to assume when SAML or OIDC process completes`)
-	cmd.MarkPersistentFlagRequired("role")
+	_ = cmd.MarkPersistentFlagRequired("role")
 	r.Cmd.AddCommand(cmd)
 }

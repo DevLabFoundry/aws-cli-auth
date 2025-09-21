@@ -27,47 +27,45 @@ jobs:
       - name: Set SemVer Version
         uses: gittools/actions/gitversion/execute@v1
         id: gitversion
+
   pr:
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.24-bookworm
     needs: set-version
     env:
       REVISION: $GITHUB_SHA
       SEMVER: ${{ needs.set-version.outputs.semVer }}
     steps:
       - uses: actions/checkout@v4
-      - name: install deps
+
+      - uses: ensono/actions/eirctl-setup@v0.3.1
+        with: 
+          version: latest
+          isPrerelease: false
+
+      - name: prep-git
         run: |
-          # Chromium dependencies
-          apt-get update && apt-get install -y jq git \
-          zip unzip \
-          libnss3 \
-          libxss1 \
-          libasound2 \
-          libxtst6 \
-          libgtk-3-0 \
-          libgbm1 \
-          ca-certificates
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.email ${{ github.actor }}-ci@gha.org
           git config user.name ${{ github.actor }}
-      - name: make test 
+      - name: Run linters 
         run: |
-          make REVISION=$GITHUB_SHA test
+          eirctl run vuln:check
+      - name: Unit Tests
+        run: |
+          eirctl run test:unit
+
       - name: Publish Junit style Test Report
         uses: mikepenz/action-junit-report@v3
         if: always() # always run even if the previous step fails
         with:
           report_paths: '**/report-junit.xml'
-      - name: Analyze with SonarCloud         
-        # You can pin the exact commit or the version.
-        uses: SonarSource/sonarcloud-github-action@master
+
+      - name: Analyze with SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Generate a token on Sonarcloud.io, add it to the secrets of this repo with the name SONAR_TOKEN (Settings > Secrets > Actions > add new repository secret)
         with:
-          args:             
+          projectBaseDir: .
+          args: >
             -Dsonar.projectVersion=${{ needs.set-version.outputs.semVer }}
-            -Dsonar.go.coverage.reportPaths=/github/workspace/.coverage/out
-            -Dsonar.go.tests.reportPaths=/github/workspace/.coverage/report-junit.xml

@@ -8,7 +8,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.0
 	github.com/aws/smithy-go v1.22.5
 	github.com/go-rod/rod v0.116.2
-	github.com/mitchellh/go-ps v1.0.0
 	github.com/spf13/cobra v1.9.1
 	github.com/werf/lockgate v0.1.1
 	github.com/zalando/go-keyring v0.2.6

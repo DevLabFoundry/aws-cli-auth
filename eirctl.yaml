@@ -1,5 +1,5 @@
 import:
-  - https://raw.githubusercontent.com/Ensono/eirctl/refs/heads/main/shared/build/go/eirctl.yaml
+  - https://raw.githubusercontent.com/Ensono/eirctl/e71dd9d66293e27e70fd0620e63a6d627579c060/shared/build/go/eirctl.yaml
 
 contexts:
   unit:test:
@@ -13,6 +13,7 @@ contexts:
       exclude:
         - HOME
         - GO
+        - TMP
 
 pipelines:
   unit:test:run:
@@ -20,7 +21,21 @@ pipelines:
     - task: unit:test
       depends_on: unit:test:prereqs
 
+  release:
+    - task: clean:dir
+    - task: build
+      depends_on: clean:dir
+
 tasks:
+  tag:
+    command: 
+      - |
+        git tag -a ${VERSION} -m "ci tag release" ${REVISION}
+        git push origin ${VERSION}
+    required:
+      env:
+        - VERSION
+        - REVISION
   unit:test:
     context: unit:test
     description: |
@@ -41,3 +56,71 @@ tasks:
         go install github.com/jstemmer/go-junit-report@v0.9.1
         go install github.com/axw/gocov/gocov@v1.0.0
         go install github.com/AlekSi/gocov-xml@v1.0.0
+
+  clean:dir:
+    command: 
+      - |
+        rm -rf dist/
+
+  build:
+    context: go1x
+    description: Builds Go binary
+    command:
+      - |
+        mkdir -p .deps
+        ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}${BUILD_GOARCH}${BINARY_SUFFIX} .
+    variations:
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: "386"
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: darwin
+        BUILD_GOARCH: ""
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: linux
+        BUILD_GOARCH: ""
+        BINARY_SUFFIX: ""
+    variables:
+      RepoOwner: DevLabFoundry
+      BinName: aws-cli-auth
+
+  build:arch:
+    context: go1x
+    description: Builds Go binary per architecture
+    command:
+      - |
+        mkdir -p .deps
+        ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}-${BUILD_GOARCH}${BINARY_SUFFIX} cmd/main.go
+    variations:
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: .exe
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: "386"
+        BINARY_SUFFIX: .exe
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: arm64
+        BINARY_SUFFIX: .exe
+      - BUILD_GOOS: darwin
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: darwin
+        BUILD_GOARCH: arm64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: linux
+        BUILD_GOARCH: arm64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: linux
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: ""
+    variables:
+      RepoOwner: DevLabFoundry
+      BinName: aws-cli-auth
+
+  build:container:
+    description: Builds the docker image
+    command: docker build --build-arg Version={{.Version}} --build-arg Revision={{.Revision}} -t eirctl:{{.Version}} .

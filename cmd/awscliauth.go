@@ -59,7 +59,7 @@ Stores them under the $HOME/.aws/credentials file under a specified path or retu
 	r.Cmd.PersistentFlags().IntVarP(&rf.duration, "max-duration", "d", 900, `Override default max session duration, in seconds, of the role session [900-43200]. 
 NB: This cannot be higher than the 3600 as the API does not allow for AssumeRole for sessions longer than an hour`)
 	r.Cmd.PersistentFlags().BoolVarP(&rf.verbose, "verbose", "v", false, "Verbose output")
-	r.dataDirInit()
+	_ = r.dataDirInit()
 	return r
 }
 

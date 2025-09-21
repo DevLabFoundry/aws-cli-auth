@@ -59,7 +59,7 @@ func refreshAwsSsoCreds(ctx context.Context, conf credentialexchange.CredentialC
 		return err
 	}
 	awsCreds := &credentialexchange.AWSCredentials{}
-	awsCreds.FromRoleCredString(capturedCreds)
+	_, _ = awsCreds.FromRoleCredString(capturedCreds)
 	return completeCredProcess(ctx, secretStore, svc, awsCreds, conf)
 }
 

@@ -77,8 +77,12 @@ func storeCredentialsInProfile(creds AWSCredentials, configSection string) error
 	awsConfPath := path.Join(basePath, "credentials")
 
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
-		os.Mkdir(basePath, 0755)
-		os.WriteFile(awsConfPath, []byte(``), 0755)
+		if err := os.Mkdir(basePath, 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(awsConfPath, []byte(``), 0755); err != nil {
+			return err
+		}
 	}
 
 	if overriddenpath, exists := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); exists {
@@ -92,9 +96,7 @@ func storeCredentialsInProfile(creds AWSCredentials, configSection string) error
 	cfg.Section(configSection).Key(awsAccessKeySection).SetValue(creds.AWSAccessKey)
 	cfg.Section(configSection).Key(awsSecretKeyIdSection).SetValue(creds.AWSSecretKey)
 	cfg.Section(configSection).Key(awsSessionTokenSection).SetValue(creds.AWSSessionToken)
-	cfg.SaveTo(awsConfPath)
-
-	return nil
+	return cfg.SaveTo(awsConfPath)
 }
 
 func returnStdOutAsJson(creds AWSCredentials) error {
@@ -105,7 +107,7 @@ func returnStdOutAsJson(creds AWSCredentials) error {
 		// Errorf("Unexpected AWS credential response")
 		return err
 	}
-	fmt.Fprint(os.Stdout, string(jsonBytes))
+	_, _ = fmt.Fprint(os.Stdout, string(jsonBytes))
 	return nil
 }
 
@@ -147,7 +149,7 @@ func WriteIniSection(role string) error {
 			return err
 		}
 		sct.Key("name").SetValue(role)
-		cfg.SaveTo(ConfigIniFile(""))
+		return cfg.SaveTo(ConfigIniFile(""))
 	}
 
 	return nil

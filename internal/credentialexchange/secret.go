@@ -190,7 +190,7 @@ func (s *SecretStore) ClearAll() error {
 	}
 
 	for _, v := range cfg.Section(INI_CONF_SECTION).ChildSections() {
-		srvSections = append(srvSections, strings.Replace(v.Name(), fmt.Sprintf("%s.", INI_CONF_SECTION), "", -1))
+		srvSections = append(srvSections, strings.ReplaceAll(v.Name(), fmt.Sprintf("%s.", INI_CONF_SECTION), ""))
 	}
 
 	for _, v := range srvSections {

@@ -6,7 +6,6 @@ import (
 	"os/user"
 
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
-	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +20,7 @@ func newClearCmd(r *Root) {
 		Use:   "clear-cache <flags>",
 		Short: "Clears any stored credentials in the OS secret store",
 		Long: `Clears any stored credentials in the OS secret store
-
-NB: Occassionally you may encounter a hanging chromium processes if not using own browser binary, you should kill all the instances of the chromium PIDs`,
+		NB: Occassionally you may encounter a hanging chromium processes, you should kill all the instances of the chromium (or if using own browser binary) PIDs`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user, err := user.Current()
 			if err != nil {
@@ -40,11 +38,7 @@ NB: Occassionally you may encounter a hanging chromium processes if not using ow
 			}
 
 			if flags.force {
-				w := &web.Web{}
-				if err := w.ForceKill(r.Datadir); err != nil {
-					return err
-				}
-				fmt.Fprint(os.Stderr, "Chromium Cache cleared")
+				fmt.Fprint(os.Stderr, "delete ~/.aws-cli-auth-data/ manually")
 			}
 
 			if err := secretStore.ClearAll(); err != nil {
