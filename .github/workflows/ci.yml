@@ -6,6 +6,12 @@ on:
   push:
     branches: [ master, main ]
 
+permissions:
+  contents: write
+  statuses: write
+  checks: write
+  pull-requests: write
+
 jobs:
   set-version:
     runs-on: ubuntu-latest
@@ -60,6 +66,9 @@ jobs:
         if: success() || failure()
         with:
           report_paths: '.coverage/report-junit.xml'
+          commit: ${{ github.sha }}
+          fail_on_failure: true
+          check_name: aws-cli-auth Unit Tests
 
       - name: Analyze with SonarCloud
         uses: SonarSource/sonarqube-scan-action@v5
