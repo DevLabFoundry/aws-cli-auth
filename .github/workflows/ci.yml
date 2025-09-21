@@ -59,7 +59,7 @@ jobs:
 
       - name: Unit Tests
         run: |
-          eirctl run test:unit
+          eirctl run unit:test:run
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v5
