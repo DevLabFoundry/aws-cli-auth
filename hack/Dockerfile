@@ -1,9 +1,0 @@
-FROM docker.io/zenika/alpine-chrome:124 as chrome
-
-USER root
-
-RUN wget https://dl.google.com/go/go1.25.1.linux-arm64.tar.gz && \
-    tar -C /usr/local -xzf go1.25.1.linux-arm64.tar.gz
-ENV PATH=$PATH:/usr/local/go/bin
-
-RUN apk add build-base

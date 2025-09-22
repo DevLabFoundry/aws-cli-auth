@@ -4,7 +4,7 @@ import:
 contexts:
   unit:test:
     container:
-      name: docker.io/dnitsch/aws-cli-auth-ci:0.6.0
+      name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.2.0
       entrypoint: /usr/bin/env
       shell: sh
       shell_args:
@@ -13,7 +13,6 @@ contexts:
       exclude:
         - HOME
         - GO
-        - TMP
 
 pipelines:
   build: 
@@ -58,7 +57,7 @@ tasks:
     command: 
       - |
         mkdir -p .coverage
-        export GOPATH=$PWD/.deps GOBIN=$PWD/.deps/bin
+        export GOPATH="${PWD}/.deps" GOBIN="${PWD}/.deps/bin"
         go install github.com/jstemmer/go-junit-report@v0.9.1
         go install github.com/axw/gocov/gocov@v1.0.0
         go install github.com/AlekSi/gocov-xml@v1.0.0

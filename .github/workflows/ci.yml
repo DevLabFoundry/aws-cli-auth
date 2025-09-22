@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   set-version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: mcr.microsoft.com/dotnet/sdk:6.0 
     outputs:
@@ -35,7 +35,7 @@ jobs:
         id: gitversion
 
   pr:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: set-version
     env:
       REVISION: $GITHUB_SHA
