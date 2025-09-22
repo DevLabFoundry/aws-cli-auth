@@ -38,8 +38,9 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./hack
+          file: ./hack/Dockerfile.ci
           push: true
           tags: |
-            ghcr.io/ensono/aws-cli-auth-ci:${{ inputs.semver }}
+            ghcr.io/devlabfoundry/aws-cli-auth-ci:${{ inputs.semver }}
           platforms: linux/amd64,linux/arm64  # adjust as needed
