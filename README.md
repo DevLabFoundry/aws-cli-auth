@@ -27,7 +27,7 @@ This tool deals with IdP logins via SAML, both into an AWS account directly or v
 
 If, however, you need to support a non standard user journeys enforced by your IdP i.e. a sub company selection within your organization login portal, or a selection screen for different MFA providers - PingID or RSA HardToken etc.... you cannot reliably automate the flow or it would have to be too specific.
 
-As such this approach uses [go-rod](https://github.com/go-rod/rod) library to uniformly allow the user to complete any and all auth steps and selections in a managed browser session up to the point of where the SAMLResponse is to be sent to AWS ACS service `https://signin.aws.amazon.com/saml`. 
+As such this approach uses [go-rod](https://github.com/go-rod/rod) library to uniformly allow the user to complete any and all auth steps and selections in a managed browser session up to the point of where the SAMLResponse is to be sent to AWS ACS service `https://signin.aws.amazon.com/saml`.
 
 Capturing this via hijack request and posting to AWS STS service to exchange this for the temporary credentials.
 

@@ -34,16 +34,40 @@ Usage:
   aws-cli-auth saml <SAML ProviderUrl> [flags]
 
 Flags:
-  -a, --acsurl string      Override the default ACS Url, used for checkin the post of the SAMLResponse (default "https://signin.aws.amazon.com/saml")
-  -h, --help               help for saml
-  -d, --max-duration int   Override default max session duration, in seconds, of the role session [900-43200] (default 900)
-      --principal string   Principal Arn of the SAML IdP in AWS
-  -p, --provider string    Saml Entity StartSSO Url
+  -a, --acsurl string              Override the default ACS Url, used for checkin the post of the SAMLResponse (default "https://signin.aws.amazon.com/saml")
+      --executable-path string     Custom path to an executable
+                                   
+                                   This needs to be a chromium like executable - e.g. Chrome, Chromium, Brave, Edge. 
+                                   
+                                   You can find out the path by opening your browser and typing in chrome|brave|edge://version
+                                   
+  -h, --help                       help for saml
+      --is-sso                     Enables the new AWS User portal login. 
+                                   If this flag is specified the --sso-role must also be specified.
+      --principal string           Principal Arn of the SAML IdP in AWS
+                                   You should find it in the IAM portal e.g.: arn:aws:iam::1234567891012:saml-provider/MyCompany-Idp
+                                   
+  -p, --provider string            Saml Entity StartSSO Url.
+                                   This is the URL your Idp will make the first call to e.g.: https://company-xyz.okta.com/home/amazon_aws/12345SomeRandonId6789
+                                   
+      --reload-before int          Triggers a credentials refresh before the specified max-duration. Value provided in seconds. Should be less than the max-duration of the session
+  -r, --role string                Set the role you want to assume when SAML or OIDC process completes
+      --saml-timeout int32         Timeout in seconds, before the operation of waiting for a response is cancelled via the chrome driver (default 120)
+      --sso-fed-endpoint string    FederationCredEndpoint in a go style fmt.Sprintf string with a region placeholder (default "https://portal.sso.%s.amazonaws.com/federation/credentials/")
+      --sso-region string          If using SSO, you must set the region (default "eu-west-1")
+      --sso-role string            Sso Role name must be in this format - 12345678910:PowerUser
+      --sso-user-endpoint string   UserEndpoint in a go style fmt.Sprintf string with a region placeholder (default "https://portal.sso.%s.amazonaws.com/user")
 
 Global Flags:
-      --cfg-section string   config section name in the yaml config file
-  -r, --role string          Set the role you want to assume when SAML or OIDC process completes
-  -s, --store-profile        By default the credentials are returned to stdout to be used by the credential_process
+      --cfg-section string   Config section name in the default AWS credentials file. To enable priofi
+  -d, --max-duration int     Override default max session duration, in seconds, of the role session [900-43200]. 
+                             NB: This cannot be higher than the 3600 as the API does not allow for AssumeRole for sessions longer than an hour (default 900)
+      --role-chain strings   If specified it will assume the roles from the base credentials, in order they are specified in
+  -s, --store-profile        By default the credentials are returned to stdout to be used by the    
+  
+                              credential_process. 
+                              Set this flag to instead store the credentials under a named profile section. You can then reference that profile name via the CLI or for use in an SDK
+  -v, --verbose              Verbose output
 ```
 
 Example:
