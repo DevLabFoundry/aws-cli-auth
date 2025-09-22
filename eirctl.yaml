@@ -58,6 +58,9 @@ tasks:
       - |
         mkdir -p .coverage
         export GOPATH="${PWD}/.deps" GOBIN="${PWD}/.deps/bin"
+        go version 
+        env
+        go env
         go install github.com/jstemmer/go-junit-report@v0.9.1
         go install github.com/axw/gocov/gocov@v1.0.0
         go install github.com/AlekSi/gocov-xml@v1.0.0
