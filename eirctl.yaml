@@ -1,0 +1,138 @@
+import:
+  - https://raw.githubusercontent.com/Ensono/eirctl/e71dd9d66293e27e70fd0620e63a6d627579c060/shared/build/go/eirctl.yaml
+
+contexts:
+  unit:test:
+    container:
+      name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.3.0
+      entrypoint: /usr/bin/env
+      shell: sh
+      shell_args:
+        - -c
+    envfile:
+      exclude:
+        - HOME
+        - GO
+
+pipelines:
+  build: 
+    - task: build:unix
+    - task: build:win
+      depends_on: build:unix
+
+  unit:test:run:
+    - task: unit:test:prereqs
+    - task: unit:test
+      depends_on: unit:test:prereqs
+
+  bin:release:
+    - task: clean:dir
+    - pipeline: build
+      depends_on: clean:dir
+
+tasks:
+  tag:
+    command: 
+      - |
+        git tag -a ${VERSION} -m "ci tag release" ${REVISION}
+        git push origin ${VERSION}
+    required:
+      env:
+        - VERSION
+        - REVISION
+
+  unit:test:
+    context: unit:test
+    description: |
+      Unit test runner needs a bit of extra care in this case to ensure we have all the dependencies
+    command: |
+      export GOPATH=$PWD/.deps GOBIN=$PWD/.deps/bin
+      CGO_ENABLED=1 go test $(go list ./... | grep -v /local/) -v -coverpkg=./... -race -mod=readonly -timeout=1m -shuffle=on -buildvcs=false -coverprofile=.coverage/out -count=1 -run=$GO_TEST_RUN_ARGS | tee .coverage/test.out
+      cat .coverage/test.out | .deps/bin/go-junit-report > .coverage/report-junit.xml
+      .deps/bin/gocov convert .coverage/out | .deps/bin/gocov-xml > .coverage/report-cobertura.xml
+
+  unit:test:prereqs:
+    description: Installs coverage and junit tools
+    context: unit:test
+    command: 
+      - |
+        mkdir -p .coverage
+        export GOPATH="${PWD}/.deps" GOBIN="${PWD}/.deps/bin"
+        go install github.com/jstemmer/go-junit-report@v0.9.1
+        go install github.com/axw/gocov/gocov@v1.0.0
+        go install github.com/AlekSi/gocov-xml@v1.0.0
+
+  clean:dir:
+    command: 
+      - |
+        rm -rf dist/
+
+  build:win:
+    context: go1x
+    description: Builds Go binary
+    command:
+      - |
+        mkdir -p .deps
+        ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}${BUILD_GOARCH} .
+    variations:
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: amd64
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: "386"
+    variables:
+      RepoOwner: DevLabFoundry
+      BinName: aws-cli-auth
+
+  build:unix:
+    context: go1x
+    description: Builds Go binary
+    command:
+      - |
+        mkdir -p .deps
+        ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}${BUILD_GOARCH} .
+    variations:
+      - BUILD_GOOS: darwin
+      - BUILD_GOOS: linux
+    variables:
+      RepoOwner: DevLabFoundry
+      BinName: aws-cli-auth
+
+  build:arch:
+    context: go1x
+    description: Builds Go binary per architecture
+    command:
+      - |
+        mkdir -p .deps
+        ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}-${BUILD_GOARCH}${BINARY_SUFFIX} cmd/main.go
+    variations:
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: .exe
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: "386"
+        BINARY_SUFFIX: .exe
+      - BUILD_GOOS: windows
+        BUILD_GOARCH: arm64
+        BINARY_SUFFIX: .exe
+      - BUILD_GOOS: darwin
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: darwin
+        BUILD_GOARCH: arm64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: linux
+        BUILD_GOARCH: arm64
+        BINARY_SUFFIX: ""
+      - BUILD_GOOS: linux
+        BUILD_GOARCH: amd64
+        BINARY_SUFFIX: ""
+    variables:
+      RepoOwner: DevLabFoundry
+      BinName: aws-cli-auth
+
+  build:container:
+    description: Builds the docker image
+    command: docker build --build-arg Version={{.Version}} --build-arg Revision={{.Revision}} -t eirctl:{{.Version}} .

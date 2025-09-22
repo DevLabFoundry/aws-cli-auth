@@ -84,7 +84,7 @@ func Test_HomeDirOverwritten(t *testing.T) {
 				return func() {
 					for _, e := range orignalEnv {
 						pair := strings.SplitN(e, "=", 2)
-						os.Setenv(pair[0], pair[1])
+						_ = os.Setenv(pair[0], pair[1])
 					}
 				}
 			},
@@ -150,7 +150,7 @@ func Test_SetCredentials_with(t *testing.T) {
 				os.Setenv("HOME", tempDir)
 				return func() {
 					os.Clearenv()
-					os.RemoveAll(tempDir)
+					_ = os.RemoveAll(tempDir)
 				}
 			},
 			cred: func() *credentialexchange.AWSCredentials {
@@ -169,7 +169,7 @@ func Test_SetCredentials_with(t *testing.T) {
 				os.Setenv("HOME", tempDir)
 				return func() {
 					os.Clearenv()
-					os.RemoveAll(tempDir)
+					_ = os.RemoveAll(tempDir)
 				}
 			},
 			cred: func() *credentialexchange.AWSCredentials {
@@ -185,12 +185,12 @@ func Test_SetCredentials_with(t *testing.T) {
 		"write using AWS_CREDENTIALS_FILE": {
 			setup: func() func() {
 				tempDir, _ := os.MkdirTemp(os.TempDir(), "set-creds-tester")
-				os.Setenv("HOME", tempDir)
-				os.WriteFile(path.Join(tempDir, "creds"), []byte(``), 0777)
-				os.Setenv("AWS_SHARED_CREDENTIALS_FILE", path.Join(tempDir, "creds"))
+				_ = os.Setenv("HOME", tempDir)
+				_ = os.WriteFile(path.Join(tempDir, "creds"), []byte(``), 0777)
+				_ = os.Setenv("AWS_SHARED_CREDENTIALS_FILE", path.Join(tempDir, "creds"))
 				return func() {
 					os.Clearenv()
-					os.RemoveAll(tempDir)
+					_ = os.RemoveAll(tempDir)
 				}
 			},
 			cred: func() *credentialexchange.AWSCredentials {

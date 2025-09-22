@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,7 +20,7 @@ func mockIdpHandler(t *testing.T) http.Handler {
 		w.Header().Set("Server", "Server")
 		w.Header().Set("X-Amzn-Requestid", "9363fdebc232c348b71c8ba5b59f9a34")
 		// w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head></head>
 <body>
@@ -30,7 +31,7 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 	})
 	mux.HandleFunc("/idp-redirect", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		<head>
 		<script type="text/javascript">
@@ -57,7 +58,7 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 	})
 	mux.HandleFunc("/idp-onload", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		  <body">
 			<div id="message"></div>
@@ -71,7 +72,7 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 	})
 	mux.HandleFunc("/some-app", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		  <body>
 			<div id="message">SomeApp</div>
@@ -82,7 +83,6 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 }
 
 func Test_WebUI_with_succesful_saml(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
@@ -96,7 +96,7 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10))
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 	saml, err := webUi.GetSamlLogin(conf)
 	if err != nil {
 		t.Errorf("expected err to be <nil> got: %s", err)
@@ -107,7 +107,6 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 }
 
 func Test_WebUI_timeout_and_return_error(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
@@ -121,7 +120,7 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0))
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
 	_, err := webUi.GetSamlLogin(conf)
 
 	if !errors.Is(err, web.ErrTimedOut) {
@@ -130,38 +129,25 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 }
 
 func Test_ClearCache(t *testing.T) {
-	// t.Parallel()
-
-	ts := httptest.NewServer(mockIdpHandler(t))
-	defer ts.Close()
-	tempDir, _ := os.MkdirTemp(os.TempDir(), "web-clear-saml-tester")
-
-	defer func() {
-		os.RemoveAll(tempDir)
-	}()
-
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(20))
-
-	if err := webUi.ForceKill(tempDir); err != nil {
-		t.Errorf("expected <nil>, got: %s", err)
-	}
+	t.Skip("no longer relevant")
 }
 
 func mockSsoHandler(t *testing.T) http.Handler {
+	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Server", "Server")
 		w.Header().Set("X-Amzn-Requestid", "9363fdebc232c348b71c8ba5b59f9a34")
-		w.Write([]byte(``))
+		_, _ = w.Write([]byte(``))
 	})
 	mux.HandleFunc("/fed-endpoint", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`{"roleCredentials":{"accessKeyId":"asdas","secretAccessKey":"sa/08asc62pun9a","sessionToken":"somtoken//////////YO4Dm0aJYq4K2rQ9V0B6yJMsKpkc5fo+iUT6nI99cZWmGFE","expiration":1698943755000}}`))
+		_, _ = w.Write([]byte(`{"roleCredentials":{"accessKeyId":"asdas","secretAccessKey":"sa/08asc62pun9a","sessionToken":"somtoken//////////YO4Dm0aJYq4K2rQ9V0B6yJMsKpkc5fo+iUT6nI99cZWmGFE","expiration":1698943755000}}`))
 	})
 	mux.HandleFunc("/idp-onload", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 		<html>
 		  <body">
 			<div id="message"></div>
@@ -177,7 +163,6 @@ func mockSsoHandler(t *testing.T) http.Handler {
 }
 
 func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
@@ -196,7 +181,7 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(10))
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 	creds, err := webUi.GetSSOCredentials(conf)
 	if err != nil {
 		t.Errorf("expected err to be <nil> got: %s", err)
@@ -207,7 +192,6 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 }
 
 func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
-	t.Parallel()
 
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
@@ -226,7 +210,7 @@ func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
 		os.RemoveAll(tempDir)
 	}()
 
-	webUi := web.New(web.NewWebConf(tempDir).WithHeadless().WithTimeout(0))
+	webUi := web.New(context.TODO(), web.NewWebConf(tempDir).WithHeadless().WithTimeout(0).WithNoSandbox())
 	_, err := webUi.GetSSOCredentials(conf)
 
 	if !errors.Is(err, web.ErrTimedOut) {

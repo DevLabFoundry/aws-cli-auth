@@ -418,7 +418,7 @@ func Test_GetSamlCreds_With(t *testing.T) {
 
 			err := cmdutils.GetCredsWebUI(
 				context.TODO(), tt.authApi(t), ss, conf,
-				web.NewWebConf(tempDir).WithHeadless().WithTimeout(10))
+				web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 
 			if tt.expectErr {
 				if err == nil {
@@ -550,7 +550,7 @@ func Test_Get_SSO_Creds_with(t *testing.T) {
 
 			err := cmdutils.GetCredsWebUI(
 				context.TODO(), tt.authApi(t), ss, conf,
-				web.NewWebConf(tempDir).WithHeadless().WithTimeout(10))
+				web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 
 			if tt.expectErr {
 				if err == nil {

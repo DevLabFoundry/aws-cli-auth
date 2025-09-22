@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,20 +13,24 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
-	ps "github.com/mitchellh/go-ps"
+	"github.com/go-rod/rod/lib/utils"
 )
 
 var (
-	ErrTimedOut = errors.New("timed out waiting for input")
+	ErrTimedOut = errors.New("timed out waiting for input or user closed aws-cli-auth browser instance")
 )
 
-// WebConb
+// WebConfig
 type WebConfig struct {
-	datadir string
+	// CustomChromeExecutable can point to a chromium like browser executable
+	// e.g. chrome, chromium, brave, edge, (any other chromium based browser)
+	CustomChromeExecutable string
+	datadir                string
 	// timeout value in seconds
-	timeout  int32
-	headless bool
-	leakless bool
+	timeout   int32
+	headless  bool
+	leakless  bool
+	noSandbox bool
 }
 
 func NewWebConf(datadir string) *WebConfig {
@@ -46,19 +51,35 @@ func (wc *WebConfig) WithHeadless() *WebConfig {
 	return wc
 }
 
+func (wc *WebConfig) WithNoSandbox() *WebConfig {
+	wc.noSandbox = true
+	return wc
+}
+
 type Web struct {
 	conf     *WebConfig
 	launcher *launcher.Launcher
 	browser  *rod.Browser
+	ctx      context.Context
 }
 
 // New returns an initialised instance of Web struct
-func New(conf *WebConfig) *Web {
+func New(ctx context.Context, conf *WebConfig) *Web {
+	l := launcher.New()
 
-	l := launcher.New().
-		Devtools(false).
-		Headless(conf.headless).
+	browserExecPath, found := conf.CustomChromeExecutable, false
+	// try default chrome location if custom location is not specified
+	if browserExecPath == "" {
+		if browserExecPath, found = launcher.LookPath(); browserExecPath != "" && found {
+			l.Bin(browserExecPath)
+		}
+	}
+
+	// common set up
+	l.Devtools(false).
 		UserDataDir(conf.datadir).
+		Headless(conf.headless).
+		NoSandbox(conf.noSandbox).
 		Leakless(conf.leakless)
 
 	url := l.MustLaunch()
@@ -67,11 +88,14 @@ func New(conf *WebConfig) *Web {
 		ControlURL(url).
 		MustConnect().NoDefaultDevice()
 
-	return &Web{
+	web := &Web{
 		conf:     conf,
 		launcher: l,
 		browser:  browser,
+		ctx:      ctx,
 	}
+
+	return web
 }
 
 func (web *Web) WithConfig(conf *WebConfig) *Web {
@@ -102,6 +126,11 @@ func (web *Web) GetSamlLogin(conf credentialexchange.CredentialConfig) (string, 
 
 	go router.Run()
 
+	go func() {
+		<-web.ctx.Done()
+		web.MustClose()
+	}()
+
 	// forever loop wait for either a successfully
 	// extracted SAMLResponse
 	//
@@ -126,7 +155,13 @@ func (web *Web) GetSamlLogin(conf credentialexchange.CredentialConfig) (string, 
 
 // GetSSOCredentials
 func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (string, error) {
+	go func() {
+		<-web.ctx.Done()
+		web.MustClose()
+	}()
 
+	// close browser even on error
+	// should cover most cases even with leakless: false
 	defer web.MustClose()
 
 	web.browser.MustPage(conf.ProviderUrl)
@@ -182,53 +217,11 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 }
 
 func (web *Web) MustClose() {
-	err := web.browser.Close()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to close browser instance: %s", err)
-	}
-	// launcher.Kill performs the PID lookup and kills it
-	web.launcher.Kill()
-}
-
-func (web *Web) ForceKill(datadir string) error {
-	errs := []error{}
-
-	if err := checkRodProcess(); err != nil {
-		errs = append(errs, err)
-	}
-	// once processes have been killed
-	// we can remove the datadir
-	if err := os.RemoveAll(datadir); err != nil {
-		errs = append(errs, err)
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("%v", errs[:])
-	}
-	return nil
-}
-
-// checkRodProcess gets a list running process
-// kills any hanging rod browser process from any previous improprely closed sessions
-func checkRodProcess() error {
-	pids := make([]int, 0)
-	ps, err := ps.Processes()
-	if err != nil {
-		return err
-	}
-	for _, v := range ps {
-		// grab all chromium processes
-		// on windows the name will be reported as `chrome.exe`
-		if strings.Contains(strings.ToLower(v.Executable()), "chrom") {
-			fmt.Fprintf(os.Stderr, "Found process: (%d) and its parent (%d)\n", v.Pid(), v.PPid())
-			pids = append(pids, v.Pid())
-		}
-	}
-	for _, pid := range pids {
-		if proc, _ := os.FindProcess(pid); proc != nil {
-			fmt.Fprintf(os.Stderr, "Process to be killed as part of clean up: %d\n", pid)
-			proc.Kill()
-		}
-	}
-	return nil
+	// swallows errors here - until a structured logger 
+	_ = web.browser.Close()
+	utils.Sleep(0.5)
+	// remove process just in case
+	// os.Process is cross platform safe way to remove a process
+	osprocess := os.Process{Pid: web.launcher.PID()}
+	_ = osprocess.Kill()
 }

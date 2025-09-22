@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/aws/smithy-go"
-	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 )
 
 type mockAuthApi struct {
@@ -302,12 +302,12 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 			setup: func() func() {
 				tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
 				tokenFile := path.Join(tmpDir, ".ignore-token")
-				os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
-				os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
-				os.Setenv("AWS_ROLE_ARN", "somerole")
+				_ = os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
+				_ = os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
+				_ = os.Setenv("AWS_ROLE_ARN", "somerole")
 				return func() {
 					os.Clearenv()
-					os.RemoveAll(tmpDir)
+					_ = os.RemoveAll(tmpDir)
 				}
 			},
 			currCred:  mockSuccessCreds,
@@ -325,12 +325,12 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 			setup: func() func() {
 				tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
 				tokenFile := path.Join(tmpDir, ".ignore-token")
-				os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
-				os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
-				os.Setenv("AWS_ROLE_ARN", "somerole")
+				_ = os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
+				_ = os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
+				_ = os.Setenv("AWS_ROLE_ARN", "somerole")
 				return func() {
 					os.Clearenv()
-					os.RemoveAll(tmpDir)
+					_ = os.RemoveAll(tmpDir)
 				}
 			},
 			currCred:  mockSuccessCreds,
@@ -371,7 +371,7 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 				// tokenFile := path.Join(tmpDir, ".ignore-token")
 				// os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
 				// os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
-				os.Setenv("AWS_ROLE_ARN", "somerole")
+				_ = os.Setenv("AWS_ROLE_ARN", "somerole")
 				return func() {
 					os.Clearenv()
 					// os.RemoveAll(tmpDir)
