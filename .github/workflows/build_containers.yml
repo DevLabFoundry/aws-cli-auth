@@ -1,4 +1,4 @@
-name: Publish Container
+name: Build and publish containers
 
 on: 
   workflow_dispatch:
