@@ -217,14 +217,11 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 }
 
 func (web *Web) MustClose() {
-	if err := web.browser.Close(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to close browser (PID: %v)", web.launcher.PID())
-	}
+	// swallows errors here - until a structured logger 
+	_ = web.browser.Close()
 	utils.Sleep(0.5)
 	// remove process just in case
 	// os.Process is cross platform safe way to remove a process
 	osprocess := os.Process{Pid: web.launcher.PID()}
-	if err := osprocess.Kill(); err != nil {
-		fmt.Fprintf(os.Stderr, "os/process kill err: %v", err)
-	}
+	_ = osprocess.Kill()
 }

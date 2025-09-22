@@ -16,7 +16,6 @@ var (
 )
 
 type Root struct {
-	ctx context.Context
 	Cmd *cobra.Command
 	// ChannelOut io.Writer
 	// ChannelErr io.Writer

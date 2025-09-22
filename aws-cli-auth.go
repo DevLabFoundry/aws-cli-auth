@@ -17,7 +17,7 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		stop()
-		log.Printf("\x1b[31minterrupted: %s\x1b[0m", ctx.Err())
+		// log.Printf("\x1b[31minterrupted: %s\x1b[0m", ctx.Err())
 		os.Exit(0)
 	}()
 

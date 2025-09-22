@@ -26,18 +26,18 @@ const (
 )
 
 type samlFlags struct {
-	providerUrl        string
-	principalArn       string
-	acsUrl             string
-	isSso              bool
-	role               string
-	ssoRegion          string
-	ssoRole            string
-	ssoUserEndpoint    string
-	ssoFedCredEndpoint string
-	datadir            string
-	samlTimeout        int32
-	reloadBeforeTime   int
+	providerUrl          string
+	principalArn         string
+	acsUrl               string
+	isSso                bool
+	role                 string
+	ssoRegion            string
+	ssoRole              string
+	ssoUserEndpoint      string
+	ssoFedCredEndpoint   string
+	customExecutablePath string
+	samlTimeout          int32
+	reloadBeforeTime     int
 }
 
 type samlCmd struct {
@@ -112,8 +112,9 @@ func newSamlCmd(r *Root) {
 				return fmt.Errorf("failed to create session %s, %w", err, ErrUnableToCreateSession)
 			}
 			svc := sts.NewFromConfig(cfg)
-
-			return cmdutils.GetCredsWebUI(ctx, svc, secretStore, conf, web.NewWebConf(r.Datadir).WithTimeout(flags.samlTimeout))
+			webConfig := web.NewWebConf(r.Datadir).WithTimeout(flags.samlTimeout)
+			webConfig.CustomChromeExecutable = flags.customExecutablePath
+			return cmdutils.GetCredsWebUI(ctx, svc, secretStore, conf, webConfig)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if flags.reloadBeforeTime != 0 && flags.reloadBeforeTime > r.rootFlags.duration {
@@ -144,6 +145,12 @@ You should find it in the IAM portal e.g.: arn:aws:iam::1234567891012:saml-provi
 	sc.cmd.PersistentFlags().StringVarP(&flags.ssoRole, "sso-role", "", "", "Sso Role name must be in this format - 12345678910:PowerUser")
 	sc.cmd.PersistentFlags().StringVarP(&flags.ssoFedCredEndpoint, "sso-fed-endpoint", "", CredsEndpoint, "FederationCredEndpoint in a go style fmt.Sprintf string with a region placeholder")
 	sc.cmd.PersistentFlags().StringVarP(&flags.ssoRegion, "sso-region", "", "eu-west-1", "If using SSO, you must set the region")
+	sc.cmd.PersistentFlags().StringVarP(&flags.customExecutablePath, "executable-path", "", "", `Custom path to an executable
+
+This needs to be a chromium like executable - e.g. Chrome, Chromium, Brave, Edge. 
+
+You can find out the path by opening your browser and typing in chrome|brave|edge://version
+`)
 	sc.cmd.PersistentFlags().BoolVarP(&flags.isSso, "is-sso", "", false, `Enables the new AWS User portal login. 
 If this flag is specified the --sso-role must also be specified.`)
 	sc.cmd.PersistentFlags().IntVarP(&flags.reloadBeforeTime, "reload-before", "", 0, "Triggers a credentials refresh before the specified max-duration. Value provided in seconds. Should be less than the max-duration of the session")
