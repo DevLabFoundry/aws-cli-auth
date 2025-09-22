@@ -76,4 +76,4 @@ jobs:
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
           files: ./dist/*
-          prerelease: true
+          prerelease: false
