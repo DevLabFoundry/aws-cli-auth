@@ -39,7 +39,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./hack
-          file: Dockerfile.ci
+          file: ./hack/Dockerfile.ci
           push: true
           tags: |
             ghcr.io/devlabfoundry/aws-cli-auth-ci:${{ inputs.semver }}
