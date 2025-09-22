@@ -41,5 +41,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/DevLabFoundry/aws-cli-auth-ci:${{ inputs.semver }}
+            ghcr.io/devlabfoundry/aws-cli-auth-ci:${{ inputs.semver }}
           platforms: linux/amd64,linux/arm64  # adjust as needed
