@@ -65,22 +65,7 @@ type Web struct {
 
 // New returns an initialised instance of Web struct
 func New(ctx context.Context, conf *WebConfig) *Web {
-	l := launcher.New()
-
-	browserExecPath, found := conf.CustomChromeExecutable, false
-	// try default chrome location if custom location is not specified
-	if browserExecPath == "" {
-		if browserExecPath, found = launcher.LookPath(); browserExecPath != "" && found {
-			l.Bin(browserExecPath)
-		}
-	}
-
-	// common set up
-	l.Devtools(false).
-		UserDataDir(conf.datadir).
-		Headless(conf.headless).
-		NoSandbox(conf.noSandbox).
-		Leakless(conf.leakless)
+	l := BuildLauncher(ctx, conf)
 
 	url := l.MustLaunch()
 
@@ -96,6 +81,26 @@ func New(ctx context.Context, conf *WebConfig) *Web {
 	}
 
 	return web
+}
+
+func BuildLauncher(ctx context.Context, conf *WebConfig) *launcher.Launcher {
+	l := launcher.New()
+
+	if conf.CustomChromeExecutable != "" {
+		l.Bin(conf.CustomChromeExecutable)
+	}
+	// try default locations if custom location is not specified and default location exists
+	if defaultExecPath, found := launcher.LookPath(); conf.CustomChromeExecutable == "" && defaultExecPath != "" && found {
+		l.Bin(defaultExecPath)
+	}
+
+	// common set up
+	l.Devtools(false).
+		UserDataDir(conf.datadir).
+		Headless(conf.headless).
+		NoSandbox(conf.noSandbox).
+		Leakless(conf.leakless)
+	return l
 }
 
 func (web *Web) WithConfig(conf *WebConfig) *Web {
@@ -217,7 +222,7 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 }
 
 func (web *Web) MustClose() {
-	// swallows errors here - until a structured logger 
+	// swallows errors here - until a structured logger
 	_ = web.browser.Close()
 	utils.Sleep(0.5)
 	// remove process just in case

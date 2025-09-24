@@ -217,3 +217,44 @@ func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
 		t.Errorf("incorrect error returned\n expected: %s, got: %s", web.ErrTimedOut, err)
 	}
 }
+
+func Test_Web_BuildLauncher(t *testing.T) {
+	ttests := map[string]struct {
+		customExe string
+		wantBin   string
+	}{
+		"with custom executable": {
+			customExe: "/fooo",
+			wantBin:   "/fooo",
+		},
+		"without custom": {
+			customExe: "/path/to/another",
+			wantBin:   "/path/to/another",
+		},
+	}
+	for name, tt := range ttests {
+		t.Run(name, func(t *testing.T) {
+			got := web.BuildLauncher(context.TODO(), &web.WebConfig{CustomChromeExecutable: tt.customExe})
+
+			bin := got.Get("rod-bin")
+			if len(bin) < 1 && tt.wantBin != "" {
+				t.Fatal("got no custom binary paths")
+			}
+			if bin != tt.wantBin {
+				t.Fatalf("got %v, want %v", bin, tt.wantBin)
+			}
+		})
+	}
+
+	t.Run("default browser is returned when no custom binary specified", func(t *testing.T) {
+		// for people running this locally without a default chrome/chromium installed this will potentially fail
+		//
+		// run the tests in the `eirctl run unit:test:run`
+		//
+		got := web.BuildLauncher(context.TODO(), &web.WebConfig{CustomChromeExecutable: ""})
+		bin := got.Get("rod-bin")
+		if len(bin) < 1 {
+			t.Fatal("got no binary paths")
+		}
+	})
+}
