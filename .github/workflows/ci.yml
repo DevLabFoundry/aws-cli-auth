@@ -56,7 +56,7 @@ jobs:
 
       - name: Run linters
         run: |
-          echo 'eirctl run vuln:check'
+          eirctl run lints
 
       - name: Unit Tests
         run: |
