@@ -227,7 +227,7 @@ func (web *Web) MustClose() {
 	utils.Sleep(0.5)
 	// remove process just in case
 	// os.Process is cross platform safe way to remove a process
-	if osprocess, err := os.FindProcess(web.launcher.PID()); err != nil {
-		osprocess.Kill()
+	if osprocess, err := os.FindProcess(web.launcher.PID()); err == nil && osprocess != nil {
+		_ = osprocess.Kill()
 	}
 }
