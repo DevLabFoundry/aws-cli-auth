@@ -67,7 +67,7 @@ func newSamlCmd(r *Root) {
 				return err
 			}
 
-			allRoles := credentialexchange.MergeRoleChain(flags.role, r.rootFlags.roleChain, sc.flags.isSso)
+			allRoles := credentialexchange.MergeRoleChain(flags.role, r.rootFlags.roleChain, flags.isSso)
 			conf := credentialexchange.CredentialConfig{
 				ProviderUrl:  flags.providerUrl,
 				PrincipalArn: flags.principalArn,
