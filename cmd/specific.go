@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os/user"
 
@@ -8,6 +9,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
+)
+
+var (
+	ErrUnsupportedMethod = errors.New("method is not supported")
 )
 
 type specificCmdFlags struct {
@@ -47,21 +52,21 @@ Returns the same JSON object as the call to the AWS CLI for any of the sts Assum
 						return err
 					}
 				default:
-					return fmt.Errorf("unsupported Method: %s", flags.method)
+					return fmt.Errorf("%s\n%w", flags.method, ErrUnsupportedMethod)
 				}
 			}
 
 			config := credentialexchange.CredentialConfig{
 				BaseConfig: credentialexchange.BaseConfig{
-					StoreInProfile: r.rootFlags.storeInProfile,
+					StoreInProfile: r.rootFlags.StoreInProfile,
 					Username:       user.Username,
 					Role:           flags.role,
-					RoleChain:      credentialexchange.MergeRoleChain(flags.role, r.rootFlags.roleChain, false),
+					RoleChain:      credentialexchange.MergeRoleChain(flags.role, r.rootFlags.RoleChain, false),
 				},
 			}
 
 			conf := credentialexchange.CredentialConfig{
-				Duration: r.rootFlags.duration,
+				Duration: r.rootFlags.Duration,
 			}
 
 			awsCreds, err = credentialexchange.AssumeRoleInChain(ctx, awsCreds, svc, config.BaseConfig.Username, config.BaseConfig.RoleChain, conf)

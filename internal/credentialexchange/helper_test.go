@@ -249,3 +249,43 @@ func Test_SetCredentials_with(t *testing.T) {
 		})
 	}
 }
+
+func Test_Helper_LoadCliConfig(t *testing.T) {
+
+	f, err := os.CreateTemp(os.TempDir(), "ini-conf-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	f.Write([]byte(`
+[config]
+browser-executable-path = "/my/Browser"
+duration = 3600
+
+[config.specific_section]
+role = arn:aws:iam::1233444555:role/SSO-admin
+role-chain = arn:aws:iam::99993444555:role/SSO-admin
+principal = arn:aws:iam::1233444555:saml-provider/GoogleIdP
+provider-url = https://accounts.google.com/o/saml2/initsso?idpid=some-foo-id123&forceauthn=false
+`))
+	ini, err := ini.Load(credentialexchange.ConfigIniFile(f.Name()))
+	if err != nil {
+		t.Fatal()
+	}
+	cfg, err := credentialexchange.LoadCliConfig(ini, "specific_section")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Duration != 3600 {
+		t.Error()
+	}
+	if cfg.BaseConfig.Role != "arn:aws:iam::1233444555:role/SSO-admin" {
+		t.Error()
+	}
+	if cfg.BaseConfig.BrowserExecutablePath != "/my/Browser" {
+		t.Error()
+	}
+	if cfg.ProviderUrl != "https://accounts.google.com/o/saml2/initsso?idpid=some-foo-id123&forceauthn=false" {
+		t.Error()
+	}
+}

@@ -56,6 +56,11 @@ func (wc *WebConfig) WithNoSandbox() *WebConfig {
 	return wc
 }
 
+func (wc *WebConfig) WithCustomExecutable(browserPath string) *WebConfig {
+	wc.CustomChromeExecutable = browserPath
+	return wc
+}
+
 type Web struct {
 	conf     *WebConfig
 	launcher *launcher.Launcher

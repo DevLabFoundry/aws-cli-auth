@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
+	"gopkg.in/ini.v1"
 )
 
 func AwsMockHandler(t *testing.T, mux *http.ServeMux) http.Handler {
@@ -165,7 +166,7 @@ func (m *mockAuthApi) AssumeRole(ctx context.Context, params *sts.AssumeRoleInpu
 type mockSecretApi struct {
 	mCred     func() (*credentialexchange.AWSCredentials, error)
 	mclear    func() error
-	mClearAll func() error
+	mClearAll func(cfg *ini.File) error
 	mSave     func(cred *credentialexchange.AWSCredentials) error
 }
 
@@ -177,8 +178,8 @@ func (s *mockSecretApi) Clear() error {
 	return s.mclear()
 }
 
-func (s *mockSecretApi) ClearAll() error {
-	return s.mClearAll()
+func (s *mockSecretApi) ClearAll(cfg *ini.File) error {
+	return s.mClearAll(cfg)
 }
 
 func (s *mockSecretApi) SaveAWSCredential(cred *credentialexchange.AWSCredentials) error {
@@ -186,8 +187,6 @@ func (s *mockSecretApi) SaveAWSCredential(cred *credentialexchange.AWSCredential
 }
 
 func Test_GetSamlCreds_With(t *testing.T) {
-	t.Parallel()
-
 	ttests := map[string]struct {
 		config      func(t *testing.T) credentialexchange.CredentialConfig
 		handler     func(t *testing.T, awsMock bool) http.Handler
@@ -341,7 +340,15 @@ func Test_GetSamlCreds_With(t *testing.T) {
 				return &mockAuthApi{}
 			},
 			secretStore: func(t *testing.T) cmdutils.SecretStorageImpl {
-				return &mockSecretApi{}
+				ss := &mockSecretApi{}
+				ss.mCred = func() (*credentialexchange.AWSCredentials, error) {
+					return &credentialexchange.AWSCredentials{
+						AWSAccessKey:    "123",
+						AWSSecretKey:    "12312s",
+						AWSSessionToken: "session-token",
+						PrincipalARN:    "some-arn"}, nil
+				}
+				return ss
 			},
 			expectErr: true,
 			errTyp:    cmdutils.ErrMissingArg,
@@ -402,6 +409,8 @@ func Test_GetSamlCreds_With(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			ts := httptest.NewServer(tt.handler(t, true))
 			defer ts.Close()
 			conf := tt.config(t)
