@@ -79,10 +79,6 @@ func newSamlCmd(r *Root) {
 				return err
 			}
 
-			allRoles := credentialexchange.MergeRoleChain(flags.Role, r.rootFlags.RoleChain, flags.IsSso)
-
-			conf.BaseConfig.RoleChain = allRoles
-
 			// now we want to overwrite anything set via the command line
 			saveRole := flags.Role
 			if flags.IsSso {
@@ -92,6 +88,8 @@ func newSamlCmd(r *Root) {
 					CredsEndpoint, conf.SsoRegion) + fmt.Sprintf(
 					SsoCredsEndpointQuery, sc.ssoRoleAccount, sc.ssoRoleName)
 			}
+
+			allRoles := credentialexchange.MergeRoleChain(conf.BaseConfig.Role, conf.BaseConfig.RoleChain, flags.IsSso)
 
 			if len(allRoles) > 0 {
 				saveRole = allRoles[len(allRoles)-1]
@@ -105,10 +103,10 @@ func newSamlCmd(r *Root) {
 			}
 
 			// we want to remove any AWS_* env vars that could interfere with the default config
-			for _, envVar := range []string{"AWS_PROFILE", "AWS_ACCESS_KEY_ID",
-				"AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"} {
-				os.Unsetenv(envVar)
-			}
+			// for _, envVar := range []string{"AWS_PROFILE", "AWS_ACCESS_KEY_ID",
+			// 	"AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"} {
+			// 	os.Unsetenv(envVar)
+			// }
 
 			awsConf, err := config.LoadDefaultConfig(ctx)
 			if err != nil {
@@ -116,10 +114,12 @@ func newSamlCmd(r *Root) {
 			}
 
 			svc := sts.NewFromConfig(awsConf)
-			webConfig := web.NewWebConf(r.Datadir).WithTimeout(flags.SamlTimeout)
-			webConfig.CustomChromeExecutable = flags.CustomExecutablePath
+			webConfig := web.NewWebConf(r.Datadir).
+				WithTimeout(flags.SamlTimeout).
+				WithCustomExecutable(conf.BaseConfig.BrowserExecutablePath)
 
 			return cmdutils.GetCredsWebUI(ctx, svc, secretStore, *conf, webConfig)
+
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if flags.ReloadBeforeTime != 0 && flags.ReloadBeforeTime > r.rootFlags.Duration {
@@ -183,11 +183,15 @@ func samlInitConfig(customPath string) (*ini.File, error) {
 }
 
 func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCmdFlags, sf *SamlCmdFlags, user string) error {
-
+	d := fileConfig.Duration
+	// 900 is the default
+	if rf.Duration != 900 {
+		d = rf.Duration
+	}
 	flagSamlConf := &credentialexchange.CredentialConfig{
 		ProviderUrl:  sf.ProviderUrl,
 		PrincipalArn: sf.PrincipalArn,
-		Duration:     rf.Duration,
+		Duration:     d,
 		AcsUrl:       sf.AcsUrl,
 		IsSso:        sf.IsSso,
 		SsoRegion:    sf.SsoRegion,
@@ -198,7 +202,7 @@ func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCm
 		StoreInProfile: rf.StoreInProfile,
 		Role:           sf.Role,
 		// RoleChain is added in the command function
-		// RoleChain:        allRoles,
+		RoleChain:        rf.RoleChain,
 		Username:         user,
 		CfgSectionName:   rf.CfgSectionName,
 		ReloadBeforeTime: sf.ReloadBeforeTime,
@@ -207,10 +211,13 @@ func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCm
 	if err := mergo.Merge(&fileConfig.BaseConfig, flagBaseConfig, mergo.WithOverride); err != nil {
 		return err
 	}
+
 	baseConf := fileConfig.BaseConfig
 	if err := mergo.Merge(fileConfig, flagSamlConf, mergo.WithOverride, mergo.WithOverrideEmptySlice); err != nil {
 		return err
 	}
+
 	fileConfig.BaseConfig = baseConf
+	fileConfig.Duration = d
 	return nil
 }
