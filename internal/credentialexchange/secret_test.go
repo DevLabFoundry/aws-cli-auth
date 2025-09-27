@@ -11,6 +11,7 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/werf/lockgate"
 	"github.com/zalando/go-keyring"
+	"gopkg.in/ini.v1"
 )
 
 var roleTest string = "arn:aws:iam::111122342343:role/DevAdmin"
@@ -292,7 +293,7 @@ func Test_ClearAll_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test")
+			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test-*")
 			iniFile := path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME))
 			_ = os.WriteFile(iniFile, []byte(`
 [role]
@@ -313,8 +314,12 @@ name = "arn:aws:iam::111122342343:role/DevAdmin"
 			}
 
 			crde.WithKeyring(tt.keyring(t)).WithLocker(tt.locker(t))
+			cfgFile, err := ini.Load(iniFile)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			err := crde.ClearAll()
+			err = crde.ClearAll(cfgFile)
 
 			if tt.expectErr {
 				if err == nil {

@@ -7,12 +7,14 @@ import (
 	"os/user"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/cmdutils"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
+	"gopkg.in/ini.v1"
 )
 
 var (
@@ -25,29 +27,29 @@ const (
 	SsoCredsEndpointQuery = "?account_id=%s&role_name=%s&debug=true"
 )
 
-type samlFlags struct {
-	providerUrl          string
-	principalArn         string
-	acsUrl               string
-	isSso                bool
-	role                 string
-	ssoRegion            string
-	ssoRole              string
-	ssoUserEndpoint      string
-	ssoFedCredEndpoint   string
-	customExecutablePath string
-	samlTimeout          int32
-	reloadBeforeTime     int
+type SamlCmdFlags struct {
+	ProviderUrl          string
+	PrincipalArn         string
+	AcsUrl               string
+	IsSso                bool
+	Role                 string
+	SsoRegion            string
+	SsoRole              string
+	SsoUserEndpoint      string
+	SsoFedCredEndpoint   string
+	CustomExecutablePath string
+	SamlTimeout          int32
+	ReloadBeforeTime     int
 }
 
 type samlCmd struct {
-	flags                       *samlFlags
+	flags                       *SamlCmdFlags
 	ssoRoleAccount, ssoRoleName string
 	cmd                         *cobra.Command
 }
 
 func newSamlCmd(r *Root) {
-	flags := &samlFlags{}
+	flags := &SamlCmdFlags{}
 	sc := &samlCmd{
 		flags: flags,
 	}
@@ -63,33 +65,28 @@ func newSamlCmd(r *Root) {
 				return err
 			}
 
-			if err := samlInitConfig(); err != nil {
+			iniFile, err := samlInitConfig(r.rootFlags.CustomIniLocation)
+			if err != nil {
 				return err
 			}
 
-			allRoles := credentialexchange.MergeRoleChain(flags.role, r.rootFlags.roleChain, flags.isSso)
-			conf := credentialexchange.CredentialConfig{
-				ProviderUrl:  flags.providerUrl,
-				PrincipalArn: flags.principalArn,
-				Duration:     r.rootFlags.duration,
-				AcsUrl:       flags.acsUrl,
-				IsSso:        flags.isSso,
-				SsoRegion:    flags.ssoRegion,
-				SsoRole:      flags.ssoRole,
-				BaseConfig: credentialexchange.BaseConfig{
-					StoreInProfile:       r.rootFlags.storeInProfile,
-					Role:                 flags.role,
-					RoleChain:            allRoles,
-					Username:             user.Username,
-					CfgSectionName:       r.rootFlags.cfgSectionName,
-					DoKillHangingProcess: r.rootFlags.killHangingProcess,
-					ReloadBeforeTime:     flags.reloadBeforeTime,
-				},
+			conf, err := credentialexchange.LoadCliConfig(iniFile, r.rootFlags.CfgSectionName)
+			if err != nil {
+				return err
 			}
 
-			saveRole := flags.role
-			if flags.isSso {
-				saveRole = flags.ssoRole
+			if err := ConfigFromFlags(conf, r.rootFlags, flags, user.Username); err != nil {
+				return err
+			}
+
+			allRoles := credentialexchange.MergeRoleChain(flags.Role, r.rootFlags.RoleChain, flags.IsSso)
+
+			conf.BaseConfig.RoleChain = allRoles
+
+			// now we want to overwrite anything set via the command line
+			saveRole := flags.Role
+			if flags.IsSso {
+				saveRole = flags.SsoRole
 				conf.SsoUserEndpoint = fmt.Sprintf(UserEndpoint, conf.SsoRegion)
 				conf.SsoCredFedEndpoint = fmt.Sprintf(
 					CredsEndpoint, conf.SsoRegion) + fmt.Sprintf(
@@ -107,21 +104,29 @@ func newSamlCmd(r *Root) {
 				return err
 			}
 
-			cfg, err := config.LoadDefaultConfig(ctx)
+			// we want to remove any AWS_* env vars that could interfere with the default config
+			for _, envVar := range []string{"AWS_PROFILE", "AWS_ACCESS_KEY_ID",
+				"AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"} {
+				os.Unsetenv(envVar)
+			}
+
+			awsConf, err := config.LoadDefaultConfig(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to create session %s, %w", err, ErrUnableToCreateSession)
 			}
-			svc := sts.NewFromConfig(cfg)
-			webConfig := web.NewWebConf(r.Datadir).WithTimeout(flags.samlTimeout)
-			webConfig.CustomChromeExecutable = flags.customExecutablePath
-			return cmdutils.GetCredsWebUI(ctx, svc, secretStore, conf, webConfig)
+
+			svc := sts.NewFromConfig(awsConf)
+			webConfig := web.NewWebConf(r.Datadir).WithTimeout(flags.SamlTimeout)
+			webConfig.CustomChromeExecutable = flags.CustomExecutablePath
+
+			return cmdutils.GetCredsWebUI(ctx, svc, secretStore, *conf, webConfig)
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if flags.reloadBeforeTime != 0 && flags.reloadBeforeTime > r.rootFlags.duration {
-				return fmt.Errorf("reload-before: %v, must be less than duration (-d): %v", flags.reloadBeforeTime, r.rootFlags.duration)
+			if flags.ReloadBeforeTime != 0 && flags.ReloadBeforeTime > r.rootFlags.Duration {
+				return fmt.Errorf("reload-before: %v, must be less than duration (-d): %v", flags.ReloadBeforeTime, r.rootFlags.Duration)
 			}
-			if len(flags.ssoRole) > 0 {
-				sr := strings.Split(flags.ssoRole, ":")
+			if len(flags.SsoRole) > 0 {
+				sr := strings.Split(flags.SsoRole, ":")
 				if len(sr) != 2 {
 					return fmt.Errorf("incorrectly formatted role for AWS SSO - must only be ACCOUNT:ROLE_NAME")
 				}
@@ -131,47 +136,81 @@ func newSamlCmd(r *Root) {
 		},
 	}
 
-	sc.cmd.PersistentFlags().StringVarP(&flags.providerUrl, "provider", "p", "", `Saml Entity StartSSO Url.
+	sc.cmd.PersistentFlags().StringVarP(&flags.ProviderUrl, "provider", "p", "", `Saml Entity StartSSO Url.
 This is the URL your Idp will make the first call to e.g.: https://company-xyz.okta.com/home/amazon_aws/12345SomeRandonId6789
 `)
-	_ = sc.cmd.MarkPersistentFlagRequired("provider")
-	sc.cmd.PersistentFlags().StringVarP(&flags.principalArn, "principal", "", "", `Principal Arn of the SAML IdP in AWS
+	// _ = sc.cmd.MarkPersistentFlagRequired("provider")
+	sc.cmd.PersistentFlags().StringVarP(&flags.PrincipalArn, "principal", "", "", `Principal Arn of the SAML IdP in AWS
 You should find it in the IAM portal e.g.: arn:aws:iam::1234567891012:saml-provider/MyCompany-Idp
 `)
 	// samlCmd.MarkPersistentFlagRequired("principal")
-	sc.cmd.PersistentFlags().StringVarP(&flags.role, "role", "r", "", `Set the role you want to assume when SAML or OIDC process completes`)
-	sc.cmd.PersistentFlags().StringVarP(&flags.acsUrl, "acsurl", "a", "https://signin.aws.amazon.com/saml", "Override the default ACS Url, used for checkin the post of the SAMLResponse")
-	sc.cmd.PersistentFlags().StringVarP(&flags.ssoUserEndpoint, "sso-user-endpoint", "", UserEndpoint, "UserEndpoint in a go style fmt.Sprintf string with a region placeholder")
-	sc.cmd.PersistentFlags().StringVarP(&flags.ssoRole, "sso-role", "", "", "Sso Role name must be in this format - 12345678910:PowerUser")
-	sc.cmd.PersistentFlags().StringVarP(&flags.ssoFedCredEndpoint, "sso-fed-endpoint", "", CredsEndpoint, "FederationCredEndpoint in a go style fmt.Sprintf string with a region placeholder")
-	sc.cmd.PersistentFlags().StringVarP(&flags.ssoRegion, "sso-region", "", "eu-west-1", "If using SSO, you must set the region")
-	sc.cmd.PersistentFlags().StringVarP(&flags.customExecutablePath, "executable-path", "", "", `Custom path to an executable
+	sc.cmd.PersistentFlags().StringVarP(&flags.Role, "role", "r", "", `Set the role you want to assume when SAML or OIDC process completes`)
+	sc.cmd.PersistentFlags().StringVarP(&flags.AcsUrl, "acsurl", "a", "https://signin.aws.amazon.com/saml", "Override the default ACS Url, used for checkin the post of the SAMLResponse")
+	sc.cmd.PersistentFlags().StringVarP(&flags.SsoUserEndpoint, "sso-user-endpoint", "", UserEndpoint, "UserEndpoint in a go style fmt.Sprintf string with a region placeholder")
+	sc.cmd.PersistentFlags().StringVarP(&flags.SsoRole, "sso-role", "", "", "Sso Role name must be in this format - 12345678910:PowerUser")
+	sc.cmd.PersistentFlags().StringVarP(&flags.SsoFedCredEndpoint, "sso-fed-endpoint", "", CredsEndpoint, "FederationCredEndpoint in a go style fmt.Sprintf string with a region placeholder")
+	sc.cmd.PersistentFlags().StringVarP(&flags.SsoRegion, "sso-region", "", "eu-west-1", "If using SSO, you must set the region")
+	sc.cmd.PersistentFlags().StringVarP(&flags.CustomExecutablePath, "executable-path", "", "", `Custom path to an executable
 
 This needs to be a chromium like executable - e.g. Chrome, Chromium, Brave, Edge. 
 
 You can find out the path by opening your browser and typing in chrome|brave|edge://version
 `)
-	sc.cmd.PersistentFlags().BoolVarP(&flags.isSso, "is-sso", "", false, `Enables the new AWS User portal login. 
+	sc.cmd.PersistentFlags().BoolVarP(&flags.IsSso, "is-sso", "", false, `Enables the new AWS User portal login. 
 If this flag is specified the --sso-role must also be specified.`)
-	sc.cmd.PersistentFlags().IntVarP(&flags.reloadBeforeTime, "reload-before", "", 0, "Triggers a credentials refresh before the specified max-duration. Value provided in seconds. Should be less than the max-duration of the session")
+	sc.cmd.PersistentFlags().IntVarP(&flags.ReloadBeforeTime, "reload-before", "", 0, "Triggers a credentials refresh before the specified max-duration. Value provided in seconds. Should be less than the max-duration of the session")
 	//
 	sc.cmd.MarkFlagsMutuallyExclusive("role", "sso-role")
-	// samlCmd.MarkFlagsMutuallyExclusive("principal", "sso-role")
 	// Non-SSO flow for SAML
-	sc.cmd.MarkFlagsRequiredTogether("principal", "role")
+	// sc.cmd.MarkFlagsRequiredTogether("principal", "role")
 	// SSO flow for SAML
 	sc.cmd.MarkFlagsRequiredTogether("is-sso", "sso-role", "sso-region")
-	sc.cmd.PersistentFlags().Int32VarP(&flags.samlTimeout, "saml-timeout", "", 120, "Timeout in seconds, before the operation of waiting for a response is cancelled via the chrome driver")
+	sc.cmd.PersistentFlags().Int32VarP(&flags.SamlTimeout, "saml-timeout", "", 120, "Timeout in seconds, before the operation of waiting for a response is cancelled via the chrome driver")
 	// Add subcommand to root command
 	r.Cmd.AddCommand(sc.cmd)
-
 }
 
-func samlInitConfig() error {
-	if _, err := os.Stat(credentialexchange.ConfigIniFile("")); err != nil {
+func samlInitConfig(customPath string) (*ini.File, error) {
+	configPath := credentialexchange.ConfigIniFile(customPath)
+	if _, err := os.Stat(configPath); err != nil {
 		// creating a file
-		rolesInit := []byte(fmt.Sprintf("[%s]\n", credentialexchange.INI_CONF_SECTION))
-		return os.WriteFile(credentialexchange.ConfigIniFile(""), rolesInit, 0644)
+		rolesInit := []byte(fmt.Sprintf("; aws-cli-auth generated [role] section\n[%s]\n", credentialexchange.INI_CONF_SECTION))
+		if err := os.WriteFile(configPath, rolesInit, 0644); err != nil {
+			return nil, err
+		}
 	}
+	return ini.Load(configPath)
+}
+
+func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCmdFlags, sf *SamlCmdFlags, user string) error {
+
+	flagSamlConf := &credentialexchange.CredentialConfig{
+		ProviderUrl:  sf.ProviderUrl,
+		PrincipalArn: sf.PrincipalArn,
+		Duration:     rf.Duration,
+		AcsUrl:       sf.AcsUrl,
+		IsSso:        sf.IsSso,
+		SsoRegion:    sf.SsoRegion,
+		SsoRole:      sf.SsoRole,
+	}
+
+	flagBaseConfig := &credentialexchange.BaseConfig{
+		StoreInProfile: rf.StoreInProfile,
+		Role:           sf.Role,
+		// RoleChain is added in the command function
+		// RoleChain:        allRoles,
+		Username:         user,
+		CfgSectionName:   rf.CfgSectionName,
+		ReloadBeforeTime: sf.ReloadBeforeTime,
+	}
+
+	if err := mergo.Merge(&fileConfig.BaseConfig, flagBaseConfig, mergo.WithOverride); err != nil {
+		return err
+	}
+	baseConf := fileConfig.BaseConfig
+	if err := mergo.Merge(fileConfig, flagSamlConf, mergo.WithOverride, mergo.WithOverrideEmptySlice); err != nil {
+		return err
+	}
+	fileConfig.BaseConfig = baseConf
 	return nil
 }

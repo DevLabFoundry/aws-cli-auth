@@ -8,24 +8,34 @@ const (
 )
 
 type BaseConfig struct {
-	Role                 string
-	RoleChain            []string
-	Username             string
-	CfgSectionName       string
-	StoreInProfile       bool
-	DoKillHangingProcess bool
-	ReloadBeforeTime     int
+	Role                  string   `ini:"role"`
+	RoleChain             []string `ini:"role-chain"`
+	BrowserExecutablePath string   `ini:"browser-executable-path"`
+	Username              string
+	CfgSectionName        string
+	StoreInProfile        bool
+	ReloadBeforeTime      int
 }
 
 type CredentialConfig struct {
 	BaseConfig         BaseConfig
-	ProviderUrl        string
-	PrincipalArn       string
+	ProviderUrl        string `ini:"provider-url"`
+	PrincipalArn       string `ini:"principal"`
 	AcsUrl             string
-	Duration           int
-	IsSso              bool
-	SsoRegion          string
-	SsoRole            string
-	SsoUserEndpoint    string
+	Duration           int    `ini:"duration"`
+	IsSso              bool   `ini:"is-sso"`
+	SsoRegion          string `ini:"sso-region"`
+	SsoRole            string `ini:"sso-role"`
+	SsoUserEndpoint    string `ini:"is-sso-endpoint"`
 	SsoCredFedEndpoint string
 }
+
+// --cfg-section aws_travelodge_ssvc
+// --store-profile
+// -p "https://accounts.google.com/o/saml2/initsso?idpid=C03uqod6r&spid=759219486523&forceauthn=false"
+// --principal "arn:aws:iam::881490129763:saml-provider/GoogleIdP"
+// --role "arn:aws:iam::881490129763:role/IdP-admin"
+// --role-chain "arn:aws:iam::881490129763:role/SSO-admin"
+// -d 3600
+// --reload-before 120
+// --executable-path="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"

@@ -5,9 +5,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/DevLabFoundry/aws-cli-auth/cmd"
+	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 )
 
@@ -79,5 +82,54 @@ func Test_Saml_timeout(t *testing.T) {
 		// if len(out) <= 0 {
 		// 	t.Fatalf("got empty, wanted a help message")
 		// }
+	})
+}
+
+func Test_SpecificCommand(t *testing.T) {
+
+	t.Run("Sepcific command should fail with wrong method", func(t *testing.T) {
+		_, _, err := cmdHelperExecutor(t, []string{"specific", "--method=unknown", "--role",
+			"arn:aws:iam::1234111111111:role/Role-ReadOnly"})
+		if err == nil {
+			t.Error("got nil, wanted an error")
+		}
+		if !errors.Is(err, cmd.ErrUnsupportedMethod) {
+			t.Errorf("got %v, wanted %v", err, cmd.ErrUnsupportedMethod)
+		}
+	})
+
+	t.Run("Sepcific command fails on missing env AWS_WEB_IDENTITY_TOKEN_FILE", func(t *testing.T) {
+		os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::1234111111111:role/Role-ReadOnly")
+		defer os.Unsetenv("AWS_ROLE_ARN")
+		_, _, err := cmdHelperExecutor(t, []string{"specific", "--method=WEB_ID", "--role",
+			"arn:aws:iam::1234111111111:role/Role-ReadOnly"})
+		if err == nil {
+			t.Error("got nil, wanted an error")
+		}
+		if !errors.Is(err, credentialexchange.ErrMissingEnvVar) {
+			t.Errorf("got %v, wanted %v", err, cmd.ErrUnsupportedMethod)
+		}
+	})
+}
+
+func Test_ClearCommand(t *testing.T) {
+
+	t.Run("should pass without --force", func(t *testing.T) {
+		_, _, err := cmdHelperExecutor(t, []string{"clear-cache"})
+		if err != nil {
+			t.Error("got nil, wanted an error")
+		}
+	})
+	t.Run("should warn user to manually delete data dir", func(t *testing.T) {
+		stdout, _, err := cmdHelperExecutor(t, []string{"clear-cache", "--force"})
+		if err != nil {
+			t.Error("got nil, wanted an error")
+		}
+		if len(stdout.String()) < 1 {
+			t.Fatal("got nil, wanted output")
+		}
+		if !strings.Contains(stdout.String(), "manually") {
+			t.Errorf("incorrect messasge displayed, got %s, wanted to include manually", stdout.String())
+		}
 	})
 }
