@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"dario.cat/mergo"
 	ini "gopkg.in/ini.v1"
 )
 
@@ -32,14 +33,13 @@ func HomeDir() string {
 	return home
 }
 
+// ConfigIniFile returns the ini file if specified a path or default one
+// located in `~/.aws-cli-auth.ini`
 func ConfigIniFile(basePath string) string {
-	var base string
 	if basePath != "" {
-		base = basePath
-	} else {
-		base = HomeDir()
+		return basePath
 	}
-	return path.Join(base, fmt.Sprintf(".%s.ini", SELF_NAME))
+	return path.Join(HomeDir(), fmt.Sprintf(".%s.ini", SELF_NAME))
 }
 
 func SessionName(username, selfName string) string {
@@ -70,6 +70,77 @@ func SetCredentials(creds *AWSCredentials, config CredentialConfig) error {
 		return nil
 	}
 	return returnStdOutAsJson(*creds)
+}
+
+// GetWebIdTokenFileContents reads the contents of the `AWS_WEB_IDENTITY_TOKEN_FILE` environment variable.
+// Used only with specific assume
+func GetWebIdTokenFileContents() (string, error) {
+	// var content *string
+	file, exists := os.LookupEnv(WEB_ID_TOKEN_VAR)
+	if !exists {
+		return "", fmt.Errorf("fileNotPresent: %s, %w", WEB_ID_TOKEN_VAR, ErrMissingEnvVar)
+	}
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+// ReloadBeforeExpiry returns true if the time
+// to expiry is less than the specified time in seconds
+// false if there is more than required time in seconds
+// before needing to recycle credentials
+func ReloadBeforeExpiry(expiry time.Time, reloadBeforeSeconds int) bool {
+	now := time.Now().Local()
+	diff := expiry.Local().Sub(now)
+	return diff.Seconds() < float64(reloadBeforeSeconds)
+}
+
+func LoadCliConfig(cfg *ini.File, cfgSection string) (*CredentialConfig, error) {
+	if cfg.HasSection("config") {
+		configSection, err := cfg.GetSection("config")
+		if err != nil {
+			return nil, err
+		}
+		mainBaseConfig := &BaseConfig{}
+		mainConfig := &CredentialConfig{}
+		_ = configSection.MapTo(mainConfig)
+		_ = configSection.MapTo(mainBaseConfig)
+		for _, section := range configSection.ChildSections() {
+			if fmt.Sprintf("config.%s", cfgSection) == section.Name() {
+				sectionBaseConfig := &BaseConfig{}
+				sectionConfig := &CredentialConfig{}
+				_ = section.MapTo(sectionConfig)
+				_ = section.MapTo(sectionBaseConfig)
+				_ = mergo.Merge(mainBaseConfig, sectionBaseConfig, mergo.WithOverride)
+				_ = mergo.Merge(mainConfig, sectionConfig, mergo.WithOverride)
+				mainConfig.BaseConfig = *mainBaseConfig
+				break
+			}
+		}
+		return mainConfig, nil
+	}
+	return &CredentialConfig{}, nil
+}
+
+// WriteIniSection update ini sections in own config file
+func WriteIniSection(role string) error {
+	section := fmt.Sprintf("%s.%s", INI_CONF_SECTION, RoleKeyConverter(role))
+	cfg, err := ini.Load(ConfigIniFile(""))
+	if err != nil {
+		return fmt.Errorf("fail to read Ini file: %v, %w", err, ErrConfigFailure)
+	}
+	if !cfg.HasSection(section) {
+		sct, err := cfg.NewSection(section)
+		if err != nil {
+			return err
+		}
+		sct.Key("name").SetValue(role)
+		return cfg.SaveTo(ConfigIniFile(""))
+	}
+
+	return nil
 }
 
 func storeCredentialsInProfile(creds AWSCredentials, configSection string) error {
@@ -108,49 +179,5 @@ func returnStdOutAsJson(creds AWSCredentials) error {
 		return err
 	}
 	_, _ = fmt.Fprint(os.Stdout, string(jsonBytes))
-	return nil
-}
-
-// GetWebIdTokenFileContents reads the contents of the `AWS_WEB_IDENTITY_TOKEN_FILE` environment variable.
-// Used only with specific assume
-func GetWebIdTokenFileContents() (string, error) {
-	// var content *string
-	file, exists := os.LookupEnv(WEB_ID_TOKEN_VAR)
-	if !exists {
-		return "", fmt.Errorf("fileNotPresent: %s, %w", WEB_ID_TOKEN_VAR, ErrMissingEnvVar)
-	}
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return "", err
-	}
-	return string(content), nil
-}
-
-// ReloadBeforeExpiry returns true if the time
-// to expiry is less than the specified time in seconds
-// false if there is more than required time in seconds
-// before needing to recycle credentials
-func ReloadBeforeExpiry(expiry time.Time, reloadBeforeSeconds int) bool {
-	now := time.Now().Local()
-	diff := expiry.Local().Sub(now)
-	return diff.Seconds() < float64(reloadBeforeSeconds)
-}
-
-// WriteIniSection update ini sections in own config file
-func WriteIniSection(role string) error {
-	section := fmt.Sprintf("%s.%s", INI_CONF_SECTION, RoleKeyConverter(role))
-	cfg, err := ini.Load(ConfigIniFile(""))
-	if err != nil {
-		return fmt.Errorf("fail to read Ini file: %v, %w", err, ErrConfigFailure)
-	}
-	if !cfg.HasSection(section) {
-		sct, err := cfg.NewSection(section)
-		if err != nil {
-			return err
-		}
-		sct.Key("name").SetValue(role)
-		return cfg.SaveTo(ConfigIniFile(""))
-	}
-
 	return nil
 }

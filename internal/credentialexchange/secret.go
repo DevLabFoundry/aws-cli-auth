@@ -90,6 +90,48 @@ func NewSecretStore(roleArn, namer, baseDir, username string) (*SecretStore, err
 	}, nil
 }
 
+func (s *SecretStore) AWSCredential() (*AWSCredentials, error) {
+	if err := s.load(); err != nil {
+		return nil, fmt.Errorf("secret store: %s, %w", err, ErrUnableToLoadAWSCred)
+	}
+
+	if s.AWSCredentials == nil && s.AWSCredJson == "" {
+		return nil, nil
+	}
+
+	return s.AWSCredentials, nil
+}
+
+func (s *SecretStore) SaveAWSCredential(cred *AWSCredentials) error {
+	s.AWSCredentials = cred
+	jsonStr, err := json.Marshal(cred)
+	if err != nil {
+		return err
+	}
+	s.AWSCredJson = string(jsonStr)
+	return s.save()
+}
+
+// ClearAll loops through all the sections in the INI file
+// deletes them from the keychain implementation on the OS
+func (s *SecretStore) ClearAll(cfg *ini.File) error {
+	srvSections := []string{}
+
+	for _, v := range cfg.Section(INI_CONF_SECTION).ChildSections() {
+		srvSections = append(srvSections, strings.ReplaceAll(v.Name(), fmt.Sprintf("%s.", INI_CONF_SECTION), ""))
+	}
+
+	for _, v := range srvSections {
+		srv := fmt.Sprintf("%s-%s", SELF_NAME, v)
+		// fmt.Fprintf(os.Stderr, "username: %s\ncredentialsecret: %s\n", s.secretUser, srv)
+		if err := s.keyring.Delete(srv, s.secretUser); err != nil {
+			return fmt.Errorf("%s, %w", err, ErrFailedToClearSecretStorage)
+		}
+	}
+
+	return nil
+}
+
 func (s *SecretStore) ensureLock() (func(), error) {
 
 	acquired, lock, err := s.locker.Acquire(s.lockResource, lockgate.AcquireOptions{Shared: false, Timeout: 1 * time.Minute})
@@ -152,56 +194,6 @@ func (s *SecretStore) save() error {
 	}
 
 	return s.keyring.Set(s.secretService, s.secretUser, s.AWSCredJson)
-}
-
-func (s *SecretStore) AWSCredential() (*AWSCredentials, error) {
-	if err := s.load(); err != nil {
-		return nil, fmt.Errorf("secret store: %s, %w", err, ErrUnableToLoadAWSCred)
-	}
-
-	if s.AWSCredentials == nil && s.AWSCredJson == "" {
-		return nil, nil
-	}
-
-	return s.AWSCredentials, nil
-}
-
-func (s *SecretStore) SaveAWSCredential(cred *AWSCredentials) error {
-	s.AWSCredentials = cred
-	jsonStr, err := json.Marshal(cred)
-	if err != nil {
-		return err
-	}
-	s.AWSCredJson = string(jsonStr)
-	return s.save()
-}
-
-func (s *SecretStore) Clear() error {
-	return s.keyring.Delete(s.secretService, s.secretUser)
-}
-
-// ClearAll loops through all the sections in the INI file
-// deletes them from the keychain implementation on the OS
-func (s *SecretStore) ClearAll() error {
-	srvSections := []string{}
-	cfg, err := ini.Load(ConfigIniFile(""))
-	if err != nil {
-		return fmt.Errorf("unable to get sections from ini: %s, %w", err, ErrUnableToRetrieveSections)
-	}
-
-	for _, v := range cfg.Section(INI_CONF_SECTION).ChildSections() {
-		srvSections = append(srvSections, strings.ReplaceAll(v.Name(), fmt.Sprintf("%s.", INI_CONF_SECTION), ""))
-	}
-
-	for _, v := range srvSections {
-		srv := fmt.Sprintf("%s-%s", SELF_NAME, v)
-		// fmt.Fprintf(os.Stderr, "username: %s\ncredentialsecret: %s\n", s.secretUser, srv)
-		if err := s.keyring.Delete(srv, s.secretUser); err != nil {
-			return fmt.Errorf("%s, %w", err, ErrFailedToClearSecretStorage)
-		}
-	}
-
-	return nil
 }
 
 // RoleKeyConverter converts a role to a key used for storing in key store

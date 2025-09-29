@@ -6,9 +6,6 @@ contexts:
     container:
       name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.3.0
       entrypoint: /usr/bin/env
-      shell: sh
-      shell_args:
-        - -c
     envfile:
       exclude:
         - HOME
@@ -30,6 +27,11 @@ pipelines:
     - pipeline: build
       depends_on: clean:dir
 
+  coverage:
+    - pipeline: unit:test:run
+    - task: show_coverage
+      depends_on: unit:test:run
+
 tasks:
   tag:
     command: 
@@ -47,7 +49,7 @@ tasks:
       Unit test runner needs a bit of extra care in this case to ensure we have all the dependencies
     command: |
       export GOPATH=$PWD/.deps GOBIN=$PWD/.deps/bin
-      CGO_ENABLED=1 go test $(go list ./... | grep -v /local/) -v -coverpkg=./... -race -mod=readonly -timeout=1m -shuffle=on -buildvcs=false -coverprofile=.coverage/out -count=1 -run=$GO_TEST_RUN_ARGS | tee .coverage/test.out
+      CGO_ENABLED=1 go test ./... -v -coverpkg=github.com/DevLabFoundry/... -race -mod=readonly -timeout=1m -shuffle=on -buildvcs=false -coverprofile=.coverage/out -count=1 -run=$GO_TEST_RUN_ARGS | tee .coverage/test.out
       cat .coverage/test.out | .deps/bin/go-junit-report > .coverage/report-junit.xml
       .deps/bin/gocov convert .coverage/out | .deps/bin/gocov-xml > .coverage/report-cobertura.xml
 

@@ -20,21 +20,21 @@ type Root struct {
 	// ChannelOut io.Writer
 	// ChannelErr io.Writer
 	// viperConf  *viper.Viper
-	rootFlags *rootCmdFlags
+	rootFlags *RootCmdFlags
 	Datadir   string
 }
 
-type rootCmdFlags struct {
-	cfgSectionName     string
-	storeInProfile     bool
-	killHangingProcess bool
-	roleChain          []string
-	verbose            bool
-	duration           int
+type RootCmdFlags struct {
+	CfgSectionName    string
+	StoreInProfile    bool
+	RoleChain         []string
+	Verbose           bool
+	Duration          int
+	CustomIniLocation string
 }
 
 func New() *Root {
-	rf := &rootCmdFlags{}
+	rf := &RootCmdFlags{}
 	r := &Root{
 		rootFlags: rf,
 		Cmd: &cobra.Command{
@@ -49,15 +49,17 @@ Stores them under the $HOME/.aws/credentials file under a specified path or retu
 		},
 	}
 
-	r.Cmd.PersistentFlags().StringSliceVarP(&rf.roleChain, "role-chain", "", []string{}, "If specified it will assume the roles from the base credentials, in order they are specified in")
-	r.Cmd.PersistentFlags().BoolVarP(&rf.storeInProfile, "store-profile", "s", false, `By default the credentials are returned to stdout to be used by the credential_process. 
+	r.Cmd.PersistentFlags().StringSliceVarP(&rf.RoleChain, "role-chain", "", []string{}, "If specified it will assume the roles from the base credentials, in order they are specified in")
+	r.Cmd.PersistentFlags().BoolVarP(&rf.StoreInProfile, "store-profile", "s", false, `By default the credentials are returned to stdout to be used by the credential_process. 
 	Set this flag to instead store the credentials under a named profile section. You can then reference that profile name via the CLI or for use in an SDK`)
-	r.Cmd.PersistentFlags().StringVarP(&rf.cfgSectionName, "cfg-section", "", "", "Config section name in the default AWS credentials file. To enable priofi")
+	r.Cmd.PersistentFlags().StringVarP(&rf.CfgSectionName, "cfg-section", "", "", "Config section name to use in the look up of the config ini file (~/.aws-cli-auth.ini) and in the AWS credentials file")
 	// When specifying store in profile the config section name must be provided
 	r.Cmd.MarkFlagsRequiredTogether("store-profile", "cfg-section")
-	r.Cmd.PersistentFlags().IntVarP(&rf.duration, "max-duration", "d", 900, `Override default max session duration, in seconds, of the role session [900-43200]. 
+	r.Cmd.PersistentFlags().IntVarP(&rf.Duration, "max-duration", "d", 900, `Override default max session duration, in seconds, of the role session [900-43200]. 
 NB: This cannot be higher than the 3600 as the API does not allow for AssumeRole for sessions longer than an hour`)
-	r.Cmd.PersistentFlags().BoolVarP(&rf.verbose, "verbose", "v", false, "Verbose output")
+	r.Cmd.PersistentFlags().BoolVarP(&rf.Verbose, "verbose", "v", false, "Verbose output")
+	r.Cmd.PersistentFlags().StringVarP(&rf.CustomIniLocation, "config-file", "c", "", "Specify the custom location of config file")
+
 	_ = r.dataDirInit()
 	return r
 }

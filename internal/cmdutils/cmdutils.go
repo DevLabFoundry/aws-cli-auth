@@ -7,6 +7,7 @@ import (
 
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
+	"gopkg.in/ini.v1"
 )
 
 var (
@@ -16,8 +17,7 @@ var (
 
 type SecretStorageImpl interface {
 	AWSCredential() (*credentialexchange.AWSCredentials, error)
-	Clear() error
-	ClearAll() error
+	ClearAll(cfg *ini.File) error
 	SaveAWSCredential(cred *credentialexchange.AWSCredentials) error
 }
 

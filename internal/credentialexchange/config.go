@@ -8,24 +8,24 @@ const (
 )
 
 type BaseConfig struct {
-	Role                 string
-	RoleChain            []string
-	Username             string
-	CfgSectionName       string
-	StoreInProfile       bool
-	DoKillHangingProcess bool
-	ReloadBeforeTime     int
+	Role                  string   `ini:"role"`
+	RoleChain             []string `ini:"role-chain"`
+	BrowserExecutablePath string   `ini:"browser-executable-path"`
+	Username              string
+	CfgSectionName        string
+	StoreInProfile        bool
+	ReloadBeforeTime      int
 }
 
 type CredentialConfig struct {
 	BaseConfig         BaseConfig
-	ProviderUrl        string
-	PrincipalArn       string
+	ProviderUrl        string `ini:"provider-url"`
+	PrincipalArn       string `ini:"principal"`
 	AcsUrl             string
-	Duration           int
-	IsSso              bool
-	SsoRegion          string
-	SsoRole            string
-	SsoUserEndpoint    string
+	Duration           int    `ini:"duration"`
+	IsSso              bool   `ini:"is-sso"`
+	SsoRegion          string `ini:"sso-region"`
+	SsoRole            string `ini:"sso-role"`
+	SsoUserEndpoint    string `ini:"is-sso-endpoint"`
 	SsoCredFedEndpoint string
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -12,6 +13,10 @@ import (
 type clearFlags struct {
 	force bool
 }
+
+var (
+	ErrCannotReadConfig = errors.New("cannot open config file")
+)
 
 func newClearCmd(r *Root) {
 	flags := &clearFlags{}
@@ -26,7 +31,8 @@ func newClearCmd(r *Root) {
 			if err != nil {
 				return err
 			}
-			if err := samlInitConfig(); err != nil {
+			iniCfg, err := samlInitConfig(r.rootFlags.CustomIniLocation)
+			if err != nil {
 				return err
 			}
 			secretStore, err := credentialexchange.NewSecretStore("",
@@ -38,15 +44,11 @@ func newClearCmd(r *Root) {
 			}
 
 			if flags.force {
-				fmt.Fprint(os.Stderr, "delete ~/.aws-cli-auth-data/ manually")
+				fmt.Fprint(cmd.OutOrStderr(), "delete ~/.aws-cli-auth-data/ manually")
 			}
 
-			if err := secretStore.ClearAll(); err != nil {
-				fmt.Fprint(os.Stderr, err.Error())
-			}
-
-			if err := os.Remove(credentialexchange.ConfigIniFile("")); err != nil {
-				return err
+			if err := secretStore.ClearAll(iniCfg); err != nil {
+				fmt.Fprint(cmd.OutOrStderr(), err.Error())
 			}
 
 			return nil
@@ -64,6 +66,5 @@ Use with caution.
 If for any reason the local ini file and the secret store on your OS (keyring on GNU, keychain MacOS, windows secret store) are out of sync and the secrets cannot be retrieved by name but still exists,
 you might want to use CLI or GUI interface to the secret backing store on your OS and search for a secret prefixed with aws-cli-* and delete manually
 `)
-
 	r.Cmd.AddCommand(cmd)
 }
