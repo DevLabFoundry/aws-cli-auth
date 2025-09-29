@@ -87,7 +87,7 @@ func Test_Saml_timeout(t *testing.T) {
 
 func Test_SpecificCommand(t *testing.T) {
 
-	t.Run("Sepcific command should fail with wrong method", func(t *testing.T) {
+	t.Run("Specific command should fail with wrong method", func(t *testing.T) {
 		_, _, err := cmdHelperExecutor(t, []string{"specific", "--method=unknown", "--role",
 			"arn:aws:iam::1234111111111:role/Role-ReadOnly"})
 		if err == nil {
@@ -98,7 +98,7 @@ func Test_SpecificCommand(t *testing.T) {
 		}
 	})
 
-	t.Run("Sepcific command fails on missing env AWS_WEB_IDENTITY_TOKEN_FILE", func(t *testing.T) {
+	t.Run("Specific command fails on missing env AWS_WEB_IDENTITY_TOKEN_FILE", func(t *testing.T) {
 		os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::1234111111111:role/Role-ReadOnly")
 		defer os.Unsetenv("AWS_ROLE_ARN")
 		_, _, err := cmdHelperExecutor(t, []string{"specific", "--method=WEB_ID", "--role",

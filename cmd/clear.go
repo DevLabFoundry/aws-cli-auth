@@ -31,7 +31,7 @@ func newClearCmd(r *Root) {
 			if err != nil {
 				return err
 			}
-			iniCfg, err := samlInitConfig("")
+			iniCfg, err := samlInitConfig(r.rootFlags.CustomIniLocation)
 			if err != nil {
 				return err
 			}
