@@ -230,11 +230,14 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 }
 
 func (web *Web) MustClose() {
-	web.launcher.Kill()
-	web.launcher.Cleanup()
+	// We do not want to clean up the user directory
+	// this ensures that the browser remembers the credentials
+	// and anything else done during the sign up process - e.g. extension installation
+	// web.launcher.Cleanup()
 	// swallows errors here - until a structured logger
 	_ = web.browser.Close()
 	utils.Sleep(0.5)
+	web.launcher.Kill()
 	// remove process just in case
 	// os.Process is cross platform safe way to remove a process
 	if osprocess, err := os.FindProcess(web.launcher.PID()); err == nil && osprocess != nil {
