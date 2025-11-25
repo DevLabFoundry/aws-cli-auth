@@ -76,7 +76,7 @@ tasks:
       - |
         mkdir -p .deps
         ldflags="-s -w -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Version={{.Version}}\" -X \"github.com/{{.RepoOwner}}/{{.BinName}}/cmd.Revision={{.Revision}}\" -extldflags -static"
-        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}-${BUILD_GOARCH} .
+        CGO_ENABLED=0 GOPATH=$PWD/.deps GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} go build -mod=readonly -buildvcs=false -ldflags="$ldflags" -o dist/{{.BinName}}-${BUILD_GOOS}-${BUILD_GOARCH}.exe .
     variations:
       - BUILD_GOOS: windows
         BUILD_GOARCH: amd64

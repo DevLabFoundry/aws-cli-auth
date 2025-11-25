@@ -69,11 +69,13 @@ type Web struct {
 }
 
 // New returns an initialised instance of Web struct
-func New(ctx context.Context, conf *WebConfig) *Web {
+func New(ctx context.Context, conf *WebConfig) (*Web, error) {
 	l := BuildLauncher(ctx, conf)
 
-	url := l.MustLaunch()
-
+	url, err := l.Launch()
+	if err != nil {
+		return nil, err
+	}
 	browser := rod.New().
 		ControlURL(url).
 		MustConnect().NoDefaultDevice()
@@ -85,26 +87,25 @@ func New(ctx context.Context, conf *WebConfig) *Web {
 		ctx:      ctx,
 	}
 
-	return web
+	return web, nil
 }
 
 func BuildLauncher(ctx context.Context, conf *WebConfig) *launcher.Launcher {
 	l := launcher.New()
-
-	if conf.CustomChromeExecutable != "" {
-		l.Bin(conf.CustomChromeExecutable)
-	}
-	// try default locations if custom location is not specified and default location exists
-	if defaultExecPath, found := launcher.LookPath(); conf.CustomChromeExecutable == "" && defaultExecPath != "" && found {
-		l.Bin(defaultExecPath)
-	}
-
 	// common set up
 	l.Devtools(false).
 		UserDataDir(conf.datadir).
 		Headless(conf.headless).
 		NoSandbox(conf.noSandbox).
 		Leakless(conf.leakless)
+
+	if conf.CustomChromeExecutable != "" {
+		return l.Bin(conf.CustomChromeExecutable)
+	}
+	// try default locations if custom location is not specified and default location exists
+	if defaultExecPath, found := launcher.LookPath(); conf.CustomChromeExecutable == "" && defaultExecPath != "" && found {
+		return l.Bin(defaultExecPath)
+	}
 	return l
 }
 
@@ -120,7 +121,8 @@ func (web *Web) GetSamlLogin(conf credentialexchange.CredentialConfig) (string, 
 	// should cover most cases even with leakless: false
 	defer web.MustClose()
 
-	web.browser.MustPage(conf.ProviderUrl)
+	page := web.browser.MustPage(conf.ProviderUrl)
+	defer page.MustClose()
 
 	router := web.browser.HijackRequests()
 	defer router.MustStop()
@@ -174,7 +176,8 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 	// should cover most cases even with leakless: false
 	defer web.MustClose()
 
-	web.browser.MustPage(conf.ProviderUrl)
+	page := web.browser.MustPage(conf.ProviderUrl)
+	defer page.MustClose()
 
 	router := web.browser.HijackRequests()
 
@@ -227,9 +230,14 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 }
 
 func (web *Web) MustClose() {
+	// We do not want to clean up the user directory
+	// this ensures that the browser remembers the credentials
+	// and anything else done during the sign up process - e.g. extension installation
+	// web.launcher.Cleanup()
 	// swallows errors here - until a structured logger
 	_ = web.browser.Close()
 	utils.Sleep(0.5)
+	web.launcher.Kill()
 	// remove process just in case
 	// os.Process is cross platform safe way to remove a process
 	if osprocess, err := os.FindProcess(web.launcher.PID()); err == nil && osprocess != nil {

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
+	"github.com/Ensono/eirctl/selfupdate"
 	"github.com/spf13/cobra"
 )
 
@@ -68,10 +70,19 @@ NB: This cannot be higher than the 3600 as the API does not allow for AssumeRole
 //
 // IF you are making your sub commands public, you can just pass them directly `WithSubCommands`
 func SubCommands() []func(*Root) {
+	suffix := fmt.Sprintf("aws-cli-auth-%s", runtime.GOOS)
+	if runtime.GOOS == "windows" {
+		suffix = suffix + "-" + runtime.GOARCH
+	}
+
+	uc := selfupdate.New("aws-cli-auth", "https://github.com/DevLabFoundry/aws-cli-auth/releases", selfupdate.WithDownloadSuffix(suffix))
 	return []func(*Root){
 		newSamlCmd,
 		newClearCmd,
 		newSpecificIdentityCmd,
+		func(rootCmd *Root) {
+			uc.AddToRootCommand(rootCmd.Cmd)
+		},
 	}
 }
 
