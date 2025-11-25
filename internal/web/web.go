@@ -100,12 +100,10 @@ func BuildLauncher(ctx context.Context, conf *WebConfig) *launcher.Launcher {
 		Leakless(conf.leakless)
 
 	if conf.CustomChromeExecutable != "" {
-		fmt.Fprintf(os.Stderr, "browser: %s\n", conf.CustomChromeExecutable)
 		return l.Bin(conf.CustomChromeExecutable)
 	}
 	// try default locations if custom location is not specified and default location exists
 	if defaultExecPath, found := launcher.LookPath(); conf.CustomChromeExecutable == "" && defaultExecPath != "" && found {
-		fmt.Fprintf(os.Stderr, "browser: %s\n", defaultExecPath)
 		return l.Bin(defaultExecPath)
 	}
 	return l
@@ -123,7 +121,8 @@ func (web *Web) GetSamlLogin(conf credentialexchange.CredentialConfig) (string, 
 	// should cover most cases even with leakless: false
 	defer web.MustClose()
 
-	web.browser.MustPage(conf.ProviderUrl)
+	page := web.browser.MustPage(conf.ProviderUrl)
+	defer page.MustClose()
 
 	router := web.browser.HijackRequests()
 	defer router.MustStop()
@@ -177,7 +176,8 @@ func (web *Web) GetSSOCredentials(conf credentialexchange.CredentialConfig) (str
 	// should cover most cases even with leakless: false
 	defer web.MustClose()
 
-	web.browser.MustPage(conf.ProviderUrl)
+	page := web.browser.MustPage(conf.ProviderUrl)
+	defer page.MustClose()
 
 	router := web.browser.HijackRequests()
 
