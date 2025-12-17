@@ -1,6 +1,6 @@
 module github.com/DevLabFoundry/aws-cli-auth
 
-go 1.25.4
+go 1.25.5
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.6
@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.40.2
 	github.com/aws/smithy-go v1.23.2
 	github.com/go-rod/rod v0.116.2
+	github.com/rezakhademix/govalidator/v2 v2.1.2
 	github.com/spf13/cobra v1.10.1
 	github.com/werf/lockgate v0.1.1
 	github.com/zalando/go-keyring v0.2.6

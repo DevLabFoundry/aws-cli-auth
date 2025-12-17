@@ -13,12 +13,14 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	validator "github.com/rezakhademix/govalidator/v2"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
 
 var (
 	ErrUnableToCreateSession = errors.New("sts - cannot start a new session")
+	ErrValidationFailed      = errors.New("missing values")
 )
 
 const (
@@ -219,5 +221,20 @@ func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCm
 
 	fileConfig.BaseConfig = baseConf
 	fileConfig.Duration = d
+
+	return configValid(fileConfig)
+}
+
+func configValid(config *credentialexchange.CredentialConfig) error {
+	v := validator.New()
+
+	v.RequiredString(config.ProviderUrl, "provider-url", "provider url must be specified").
+		RequiredString(config.BaseConfig.Role, "role", "role must be provided").
+		RequiredString(config.PrincipalArn, "principal-arn", "principal ARN must be provided").
+		CustomRule(!(len(config.BaseConfig.Role) > 1 && len(config.SsoRole) > 1), "sso-role", "sso-role cannot be specified when role is also set")
+
+	if v.IsFailed() {
+		return fmt.Errorf("%w %#q", ErrValidationFailed, v.Errors())
+	}
 	return nil
 }
