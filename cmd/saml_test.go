@@ -77,11 +77,12 @@ func Test_ConfigMerge_fails_with_missing(t *testing.T) {
 				RoleChain:             []string{"role-123"},
 			},
 			PrincipalArn: "some-arn",
-			SsoRegion:    "foo",
+			IsSso:        true,
+			SsoRegion:    "",
 			SsoRole:      "foo:bar",
 			ProviderUrl:  "https://my-idp.com/?app_id=testdd",
 		}
-		err := cmd.ConfigFromFlags(conf, &cmd.RootCmdFlags{}, &cmd.SamlCmdFlags{Role: "wrong-role"}, "me")
+		err := cmd.ConfigFromFlags(conf, &cmd.RootCmdFlags{}, &cmd.SamlCmdFlags{}, "me")
 		if !errors.Is(err, cmd.ErrValidationFailed) {
 			t.Error(err)
 		}
