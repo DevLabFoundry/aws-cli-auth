@@ -227,11 +227,15 @@ func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCm
 
 func configValid(config *credentialexchange.CredentialConfig) error {
 	v := validator.New()
-
+	ssoVal := !config.IsSso
+	if config.IsSso {
+		ssoVal = len(config.SsoRole) > 0 && len(config.SsoRegion) > 0
+	}
 	v.RequiredString(config.ProviderUrl, "provider-url", "provider url must be specified").
 		RequiredString(config.BaseConfig.Role, "role", "role must be provided").
 		RequiredString(config.PrincipalArn, "principal-arn", "principal ARN must be provided").
-		CustomRule(!(len(config.BaseConfig.Role) > 1 && len(config.SsoRole) > 1), "sso-role", "sso-role cannot be specified when role is also set")
+		CustomRule(ssoVal, "is-sso", "sso-role must be specified when is-sso is set").
+		CustomRule((len(config.BaseConfig.Role) > 1 && len(config.SsoRole) < 1) || (len(config.BaseConfig.Role) < 1 && len(config.SsoRole) > 1), "sso-role", "sso-role cannot be specified when role is also set")
 
 	if v.IsFailed() {
 		return fmt.Errorf("%w %#q", ErrValidationFailed, v.Errors())

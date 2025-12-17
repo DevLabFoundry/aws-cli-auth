@@ -68,7 +68,7 @@ func Test_ConfigMerge_fails_with_missing(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	t.Run("role and sso-role provided", func(t *testing.T) {
+	t.Run("is-sso set but sso-role not set", func(t *testing.T) {
 
 		conf := &credentialexchange.CredentialConfig{
 			BaseConfig: credentialexchange.BaseConfig{
@@ -76,11 +76,30 @@ func Test_ConfigMerge_fails_with_missing(t *testing.T) {
 				Role:                  "",
 				RoleChain:             []string{"role-123"},
 			},
-			SsoRegion:   "foo",
-			SsoRole:     "foo:bar",
-			ProviderUrl: "https://my-idp.com/?app_id=testdd",
+			PrincipalArn: "some-arn",
+			SsoRegion:    "foo",
+			SsoRole:      "foo:bar",
+			ProviderUrl:  "https://my-idp.com/?app_id=testdd",
 		}
-		err := cmd.ConfigFromFlags(conf, &cmd.RootCmdFlags{}, &cmd.SamlCmdFlags{}, "me")
+		err := cmd.ConfigFromFlags(conf, &cmd.RootCmdFlags{}, &cmd.SamlCmdFlags{Role: "wrong-role"}, "me")
+		if !errors.Is(err, cmd.ErrValidationFailed) {
+			t.Error(err)
+		}
+	})
+	t.Run("role and sso-role both provided", func(t *testing.T) {
+
+		conf := &credentialexchange.CredentialConfig{
+			BaseConfig: credentialexchange.BaseConfig{
+				BrowserExecutablePath: "/foo/path",
+				Role:                  "",
+				RoleChain:             []string{"role-123"},
+			},
+			PrincipalArn: "some-arn",
+			SsoRegion:    "foo",
+			SsoRole:      "foo:bar",
+			ProviderUrl:  "https://my-idp.com/?app_id=testdd",
+		}
+		err := cmd.ConfigFromFlags(conf, &cmd.RootCmdFlags{}, &cmd.SamlCmdFlags{Role: "wrong-role"}, "me")
 		if !errors.Is(err, cmd.ErrValidationFailed) {
 			t.Error(err)
 		}
