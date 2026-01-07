@@ -30,20 +30,6 @@ type authWebTokenApi interface {
 	AssumeRoleWithWebIdentity(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error)
 }
 
-// type CredentialExchange struct {
-// 	logger      zerolog.Logger
-// 	samlSvc     AuthSamlApi
-// 	specificSvc authWebTokenApi
-// }
-
-// func New(logger zerolog.Logger, samlSvc AuthSamlApi, specificSvc authWebTokenApi) *CredentialExchange {
-// 	return &CredentialExchange{
-// 		logger:      logger,
-// 		samlSvc:     samlSvc,
-// 		specificSvc: specificSvc,
-// 	}
-// }
-
 // LoginStsSaml exchanges saml response for STS creds
 func LoginStsSaml(ctx context.Context, samlResponse string, role AWSRole, svc AuthSamlApi) (*AWSCredentials, error) {
 
@@ -54,10 +40,6 @@ func LoginStsSaml(ctx context.Context, samlResponse string, role AWSRole, svc Au
 		DurationSeconds: aws.Int32(int32(role.Duration)),
 	}
 
-	// unsetting the AWS_PROFILE here as we want to assume using samlResp credentials
-	//
-	// if profile is set the credential provider fails to cascade back to `[default]` section in ~/.aws/config
-	// os.Unsetenv("AWS_PROFILE")
 	resp, err := svc.AssumeRoleWithSAML(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("%w, failed to retrieve STS credentials using SAML: %s", ErrUnableAssume, err.Error())
