@@ -2,7 +2,6 @@ package credentialexchange
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -21,50 +20,29 @@ var (
 	ErrUnmarshalCred       = errors.New("unable to unmarshal credential from string")
 )
 
-// AWSRole aws role attributes
-type AWSRoleConfig struct {
-	RoleARN      string
-	PrincipalARN string
-	Name         string
-}
-
-// AWSCredentials is a representation of the returned credential
-type AWSCredentials struct {
-	Version         int
-	AWSAccessKey    string    `json:"AccessKeyId"`
-	AWSSecretKey    string    `json:"SecretAccessKey"`
-	AWSSessionToken string    `json:"SessionToken"`
-	PrincipalARN    string    `json:"-"`
-	Expires         time.Time `json:"Expiration"`
-}
-
-func (a *AWSCredentials) FromRoleCredString(cred string) (*AWSCredentials, error) {
-	// RoleCreds can be encapsulated in this function
-	// never used outside of this scope for now
-	type RoleCreds struct {
-		RoleCreds struct {
-			AccessKey    string `json:"accessKeyId"`
-			SecretKey    string `json:"secretAccessKey"`
-			SessionToken string `json:"sessionToken"`
-			Expiration   int64  `json:"expiration"`
-		} `json:"roleCredentials"`
-	}
-	rc := &RoleCreds{}
-	if err := json.Unmarshal([]byte(cred), rc); err != nil {
-		return nil, fmt.Errorf("%s, %w", err, ErrUnmarshalCred)
-	}
-	a.AWSAccessKey = rc.RoleCreds.AccessKey
-	a.AWSSecretKey = rc.RoleCreds.SecretKey
-	a.AWSSessionToken = rc.RoleCreds.SessionToken
-	a.Expires = time.UnixMilli(rc.RoleCreds.Expiration)
-	return a, nil
-}
-
 type AuthSamlApi interface {
 	AssumeRoleWithSAML(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error)
 	GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 	AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error)
 }
+
+type authWebTokenApi interface {
+	AssumeRoleWithWebIdentity(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error)
+}
+
+// type CredentialExchange struct {
+// 	logger      zerolog.Logger
+// 	samlSvc     AuthSamlApi
+// 	specificSvc authWebTokenApi
+// }
+
+// func New(logger zerolog.Logger, samlSvc AuthSamlApi, specificSvc authWebTokenApi) *CredentialExchange {
+// 	return &CredentialExchange{
+// 		logger:      logger,
+// 		samlSvc:     samlSvc,
+// 		specificSvc: specificSvc,
+// 	}
+// }
 
 // LoginStsSaml exchanges saml response for STS creds
 func LoginStsSaml(ctx context.Context, samlResponse string, role AWSRole, svc AuthSamlApi) (*AWSCredentials, error) {
@@ -76,9 +54,13 @@ func LoginStsSaml(ctx context.Context, samlResponse string, role AWSRole, svc Au
 		DurationSeconds: aws.Int32(int32(role.Duration)),
 	}
 
+	// unsetting the AWS_PROFILE here as we want to assume using samlResp credentials
+	//
+	// if profile is set the credential provider fails to cascade back to `[default]` section in ~/.aws/config
+	// os.Unsetenv("AWS_PROFILE")
 	resp, err := svc.AssumeRoleWithSAML(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve STS credentials using SAML: %s, %w", err.Error(), ErrUnableAssume)
+		return nil, fmt.Errorf("%w, failed to retrieve STS credentials using SAML: %s", ErrUnableAssume, err.Error())
 	}
 
 	return &AWSCredentials{
@@ -88,15 +70,6 @@ func LoginStsSaml(ctx context.Context, samlResponse string, role AWSRole, svc Au
 		PrincipalARN:    *resp.AssumedRoleUser.Arn,
 		Expires:         resp.Credentials.Expiration.Local(),
 	}, nil
-}
-
-type credsProvider struct {
-	accessKey, secretKey, sessionToken string
-	expiry                             time.Time
-}
-
-func (c *credsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
-	return aws.Credentials{AccessKeyID: c.accessKey, SecretAccessKey: c.secretKey, SessionToken: c.sessionToken, CanExpire: true, Expires: c.expiry}, nil
 }
 
 // IsValid checks current credentials and
@@ -109,11 +82,6 @@ func IsValid(ctx context.Context, currentCreds *AWSCredentials, reloadBeforeTime
 	}
 
 	if _, err := svc.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{}, func(o *sts.Options) {
-		// set the default region for the
-		// if o.EndpointOptions.GetResolvedRegion() == "" {
-		// 	// cannot determine
-		// 	o.BaseEndpoint = aws.String("https://sts.amazonaws.com")
-		// }
 		o.Credentials = &credsProvider{currentCreds.AWSAccessKey, currentCreds.AWSSecretKey, currentCreds.AWSSessionToken, currentCreds.Expires}
 	}); err != nil {
 		// var oe *smithy.OperationError
@@ -128,10 +96,6 @@ func IsValid(ctx context.Context, currentCreds *AWSCredentials, reloadBeforeTime
 	}
 
 	return !ReloadBeforeExpiry(currentCreds.Expires, reloadBeforeTime), nil
-}
-
-type authWebTokenApi interface {
-	AssumeRoleWithWebIdentity(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error)
 }
 
 // LoginAwsWebToken
@@ -167,6 +131,23 @@ func LoginAwsWebToken(ctx context.Context, username string, svc authWebTokenApi)
 	}, nil
 }
 
+// AssumeRoleInChain loops over all the roles provided
+// If none are provided it will return the baseCreds
+func AssumeRoleInChain(ctx context.Context, baseCreds *AWSCredentials, svc AuthSamlApi, username string, roles []string, conf CredentialConfig) (*AWSCredentials, error) {
+	duration := int32(900)
+	for idx, r := range roles {
+		if len(roles) == idx+1 {
+			duration = int32(conf.Duration)
+		}
+		c, err := assumeRoleWithCreds(ctx, baseCreds, svc, username, r, duration)
+		if err != nil {
+			return nil, err
+		}
+		baseCreds = c
+	}
+	return baseCreds, nil
+}
+
 // AssumeRoleWithCreds uses existing creds retrieved from anywhere
 // to pass to a credential provider and assume a specific role
 //
@@ -199,19 +180,11 @@ func assumeRoleWithCreds(ctx context.Context, currentCreds *AWSCredentials, svc 
 	}, nil
 }
 
-// AssumeRoleInChain loops over all the roles provided
-// If none are provided it will return the baseCreds
-func AssumeRoleInChain(ctx context.Context, baseCreds *AWSCredentials, svc AuthSamlApi, username string, roles []string, conf CredentialConfig) (*AWSCredentials, error) {
-	duration := int32(900)
-	for idx, r := range roles {
-		if len(roles) == idx+1 {
-			duration = int32(conf.Duration)
-		}
-		c, err := assumeRoleWithCreds(ctx, baseCreds, svc, username, r, duration)
-		if err != nil {
-			return nil, err
-		}
-		baseCreds = c
-	}
-	return baseCreds, nil
+type credsProvider struct {
+	accessKey, secretKey, sessionToken string
+	expiry                             time.Time
+}
+
+func (c *credsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
+	return aws.Credentials{AccessKeyID: c.accessKey, SecretAccessKey: c.secretKey, SessionToken: c.sessionToken, CanExpire: true, Expires: c.expiry}, nil
 }

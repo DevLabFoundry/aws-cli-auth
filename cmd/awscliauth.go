@@ -9,6 +9,7 @@ import (
 
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/Ensono/eirctl/selfupdate"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -23,6 +24,7 @@ type Root struct {
 	// ChannelErr io.Writer
 	// viperConf  *viper.Viper
 	rootFlags *RootCmdFlags
+	logger    zerolog.Logger
 	Datadir   string
 }
 
@@ -35,9 +37,10 @@ type RootCmdFlags struct {
 	CustomIniLocation string
 }
 
-func New() *Root {
+func New(logger zerolog.Logger) *Root {
 	rf := &RootCmdFlags{}
 	r := &Root{
+		logger:    logger,
 		rootFlags: rf,
 		Cmd: &cobra.Command{
 			Use:   "aws-cli-auth",

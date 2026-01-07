@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	validator "github.com/rezakhademix/govalidator/v2"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -66,16 +67,23 @@ func newSamlCmd(r *Root) {
 			if err != nil {
 				return err
 			}
-
+			if r.rootFlags.Verbose {
+				r.logger = r.logger.Level(zerolog.DebugLevel)
+			}
+			r.logger.Debug().Str("CustomIniLocation", r.rootFlags.CustomIniLocation).Msg("if empty using default ~/.aws-cli-auth.ini")
 			iniFile, err := samlInitConfig(r.rootFlags.CustomIniLocation)
 			if err != nil {
 				return err
 			}
 
+			r.logger.Debug().Msgf("iniFile: %+v", iniFile)
+
 			conf, err := credentialexchange.LoadCliConfig(iniFile, r.rootFlags.CfgSectionName)
 			if err != nil {
 				return err
 			}
+
+			r.logger.Debug().Str("section", r.rootFlags.CfgSectionName).Msgf("loaded section: %+v", conf)
 
 			if err := ConfigFromFlags(conf, r.rootFlags, flags, user.Username); err != nil {
 				return err
@@ -97,6 +105,11 @@ func newSamlCmd(r *Root) {
 				saveRole = allRoles[len(allRoles)-1]
 			}
 
+			r.logger.Debug().Str("saveRole", saveRole).
+				Str("SsoEndpoint", conf.SsoUserEndpoint).
+				Str("SsoCredFedEndpoint", conf.SsoCredFedEndpoint).
+				Msg("")
+
 			secretStore, err := credentialexchange.NewSecretStore(saveRole,
 				fmt.Sprintf("%s-%s", credentialexchange.SELF_NAME, credentialexchange.RoleKeyConverter(saveRole)),
 				os.TempDir(), user.Username)
@@ -104,18 +117,16 @@ func newSamlCmd(r *Root) {
 				return err
 			}
 
-			// we want to remove any AWS_* env vars that could interfere with the default config
-			// for _, envVar := range []string{"AWS_PROFILE", "AWS_ACCESS_KEY_ID",
-			// 	"AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"} {
-			// 	os.Unsetenv(envVar)
-			// }
-
-			awsConf, err := config.LoadDefaultConfig(ctx)
+			cfg, err := config.LoadDefaultConfig(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to create session %s, %w", err, ErrUnableToCreateSession)
 			}
 
-			svc := sts.NewFromConfig(awsConf)
+			if cfg.Region == "" {
+				return fmt.Errorf("unable to deduce AWS region, AWS_REGION, AWS_DEFAULT_REGION, ~/.aws/config default or profile level region must be set")
+			}
+
+			svc := sts.NewFromConfig(cfg)
 			webConfig := web.NewWebConf(r.Datadir).
 				WithTimeout(flags.SamlTimeout).
 				WithCustomExecutable(conf.BaseConfig.BrowserExecutablePath)
@@ -167,7 +178,7 @@ If this flag is specified the --sso-role must also be specified.`)
 	// sc.cmd.MarkFlagsRequiredTogether("principal", "role")
 	// SSO flow for SAML
 	sc.cmd.MarkFlagsRequiredTogether("is-sso", "sso-role", "sso-region")
-	sc.cmd.PersistentFlags().Int32VarP(&flags.SamlTimeout, "saml-timeout", "", 120, "Timeout in seconds, before the operation of waiting for a response is cancelled via the chrome driver")
+	sc.cmd.PersistentFlags().Int32VarP(&flags.SamlTimeout, "saml-timeout", "", 120, "Timeout in seconds, before the operation of waiting for a response is cancelled via CDP (ChromeDeubgProto)")
 	// Add subcommand to root command
 	r.Cmd.AddCommand(sc.cmd)
 }

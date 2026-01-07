@@ -12,13 +12,14 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/cmd"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
+	"github.com/rs/zerolog"
 )
 
 func cmdHelperExecutor(t *testing.T, args []string) (stdOut *bytes.Buffer, errOut *bytes.Buffer, err error) {
 	t.Helper()
 	errOut = new(bytes.Buffer)
 	stdOut = new(bytes.Buffer)
-	c := cmd.New()
+	c := cmd.New(zerolog.New(io.Discard))
 	c.WithSubCommands(cmd.SubCommands()...)
 	c.Cmd.SetArgs(args)
 	c.Cmd.SetErr(errOut)
