@@ -13,9 +13,6 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/internal/cmdutils"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/DevLabFoundry/aws-cli-auth/internal/web"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"gopkg.in/ini.v1"
 )
 
@@ -145,22 +142,31 @@ func testConfig() credentialexchange.CredentialConfig {
 	}
 }
 
-type mockAuthApi struct {
-	assumeRoleWSaml func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error)
-	getCallId       func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
-	assume          func(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error)
+type mockCredExchangeApi struct {
+	isValid           func(ctx context.Context, currentCreds *credentialexchange.AWSCredentials, reloadBeforeTime int) (bool, error)
+	loginStsSaml      func(ctx context.Context, samlResponse string, role credentialexchange.AWSRole) (*credentialexchange.AWSCredentials, error)
+	assumeRoleInChain func(ctx context.Context, baseCreds *credentialexchange.AWSCredentials, username string, roles []string, conf credentialexchange.CredentialConfig) (*credentialexchange.AWSCredentials, error)
 }
 
-func (m *mockAuthApi) AssumeRoleWithSAML(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
-	return m.assumeRoleWSaml(ctx, params, optFns...)
+func (m *mockCredExchangeApi) IsValid(ctx context.Context, currentCreds *credentialexchange.AWSCredentials, reloadBeforeTime int) (bool, error) {
+	if m.isValid != nil {
+		return m.isValid(ctx, currentCreds, reloadBeforeTime)
+	}
+	return false, nil
 }
 
-func (m *mockAuthApi) GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
-	return m.getCallId(ctx, params, optFns...)
+func (m *mockCredExchangeApi) LoginStsSaml(ctx context.Context, samlResponse string, role credentialexchange.AWSRole) (*credentialexchange.AWSCredentials, error) {
+	if m.loginStsSaml != nil {
+		return m.loginStsSaml(ctx, samlResponse, role)
+	}
+	return &credentialexchange.AWSCredentials{}, nil
 }
 
-func (m *mockAuthApi) AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
-	return m.assume(ctx, params, optFns...)
+func (m *mockCredExchangeApi) AssumeRoleInChain(ctx context.Context, baseCreds *credentialexchange.AWSCredentials, username string, roles []string, conf credentialexchange.CredentialConfig) (*credentialexchange.AWSCredentials, error) {
+	if m.assumeRoleInChain != nil {
+		return m.assumeRoleInChain(ctx, baseCreds, username, roles, conf)
+	}
+	return &credentialexchange.AWSCredentials{}, nil
 }
 
 type mockSecretApi struct {
@@ -188,64 +194,20 @@ func (s *mockSecretApi) SaveAWSCredential(cred *credentialexchange.AWSCredential
 
 func Test_GetSamlCreds_With(t *testing.T) {
 	ttests := map[string]struct {
-		config      func(t *testing.T) credentialexchange.CredentialConfig
-		handler     func(t *testing.T, awsMock bool) http.Handler
-		authApi     func(t *testing.T) credentialexchange.AuthSamlApi
-		secretStore func(t *testing.T) cmdutils.SecretStorageImpl
-		expectErr   bool
-		errTyp      error
+		config       func(t *testing.T) credentialexchange.CredentialConfig
+		handler      func(t *testing.T, awsMock bool) http.Handler
+		credExchange func(t *testing.T) cmdutils.CredentialExchangeImpl
+		secretStore  func(t *testing.T) cmdutils.SecretStorageImpl
+		expectErr    bool
+		errTyp       error
 	}{
 		"correct config and extracted creds but not valid anymore": {
 			config: func(t *testing.T) credentialexchange.CredentialConfig {
 				return testConfig()
 			},
 			handler: IdpHandler,
-			authApi: func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
-				m.assumeRoleWSaml = func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
-					return &sts.AssumeRoleWithSAMLOutput{
-						AssumedRoleUser: &types.AssumedRoleUser{
-							AssumedRoleId: aws.String("some-role"),
-							Arn:           aws.String("arn"),
-						},
-						Audience: new(string),
-						Credentials: &types.Credentials{
-							AccessKeyId:     aws.String("123213"),
-							SecretAccessKey: aws.String("32798hewf"),
-							SessionToken:    aws.String("49hefusdSOM_LONG_TOKEN_HERE"),
-							Expiration:      aws.Time(time.Now().Local().Add(time.Minute * time.Duration(5))),
-						},
-						Issuer:           new(string),
-						NameQualifier:    new(string),
-						PackedPolicySize: new(int32),
-						SourceIdentity:   new(string),
-						Subject:          new(string),
-						SubjectType:      new(string),
-					}, nil
-				}
-
-				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
-					// t.Error()
-					return &sts.GetCallerIdentityOutput{
-						Account: aws.String("1122223334"),
-						Arn:     aws.String("arn:aws:iam::1122223334:role/some-role"),
-						UserId:  aws.String("some-user-id"),
-					}, nil
-				}
-				m.assume = func(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
-					return &sts.AssumeRoleOutput{
-						AssumedRoleUser: &types.AssumedRoleUser{
-							AssumedRoleId: aws.String("some-role"),
-							Arn:           aws.String("arn"),
-						},
-						Credentials: &types.Credentials{
-							AccessKeyId:     aws.String("123213"),
-							SecretAccessKey: aws.String("32798hewf"),
-							SessionToken:    aws.String("49hefusdSOM_LONG_TOKEN_HERE"),
-							Expiration:      aws.Time(time.Now().Local().Add(time.Minute * time.Duration(5))),
-						},
-					}, nil
-				}
+			credExchange: func(t *testing.T) cmdutils.CredentialExchangeImpl {
+				m := &mockCredExchangeApi{}
 				return m
 			},
 			secretStore: func(t *testing.T) cmdutils.SecretStorageImpl {
@@ -274,37 +236,10 @@ func Test_GetSamlCreds_With(t *testing.T) {
 				return conf
 			},
 			handler: IdpHandler,
-			authApi: func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
-				m.assumeRoleWSaml = func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
-					return &sts.AssumeRoleWithSAMLOutput{
-						AssumedRoleUser: &types.AssumedRoleUser{
-							AssumedRoleId: aws.String("some-role"),
-							Arn:           aws.String("arn"),
-						},
-						Audience: new(string),
-						Credentials: &types.Credentials{
-							AccessKeyId:     aws.String("123213"),
-							SecretAccessKey: aws.String("32798hewf"),
-							SessionToken:    aws.String("49hefusdSOM_LONG_TOKEN_HERE"),
-							Expiration:      aws.Time(time.Now().Local().Add(time.Minute * time.Duration(5))),
-						},
-						Issuer:           new(string),
-						NameQualifier:    new(string),
-						PackedPolicySize: new(int32),
-						SourceIdentity:   new(string),
-						Subject:          new(string),
-						SubjectType:      new(string),
-					}, nil
-				}
-
-				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
-					// t.Error()
-					return &sts.GetCallerIdentityOutput{
-						Account: aws.String("1122223334"),
-						Arn:     aws.String("arn:aws:iam::1122223334:role/some-role"),
-						UserId:  aws.String("some-user-id"),
-					}, nil
+			credExchange: func(t *testing.T) cmdutils.CredentialExchangeImpl {
+				m := &mockCredExchangeApi{}
+				m.isValid = func(ctx context.Context, currentCreds *credentialexchange.AWSCredentials, reloadBeforeTime int) (bool, error) {
+					return true, nil
 				}
 
 				return m
@@ -336,8 +271,8 @@ func Test_GetSamlCreds_With(t *testing.T) {
 				return tc
 			},
 			handler: IdpHandler,
-			authApi: func(t *testing.T) credentialexchange.AuthSamlApi {
-				return &mockAuthApi{}
+			credExchange: func(t *testing.T) cmdutils.CredentialExchangeImpl {
+				return &mockCredExchangeApi{}
 			},
 			secretStore: func(t *testing.T) cmdutils.SecretStorageImpl {
 				ss := &mockSecretApi{}
@@ -361,8 +296,8 @@ func Test_GetSamlCreds_With(t *testing.T) {
 				return tc
 			},
 			handler: IdpHandler,
-			authApi: func(t *testing.T) credentialexchange.AuthSamlApi {
-				return &mockAuthApi{}
+			credExchange: func(t *testing.T) cmdutils.CredentialExchangeImpl {
+				return &mockCredExchangeApi{}
 			},
 			secretStore: func(t *testing.T) cmdutils.SecretStorageImpl {
 				ss := &mockSecretApi{}
@@ -382,12 +317,11 @@ func Test_GetSamlCreds_With(t *testing.T) {
 				return tc
 			},
 			handler: IdpHandler,
-			authApi: func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
-				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
-					return nil, fmt.Errorf("get caller error")
+			credExchange: func(t *testing.T) cmdutils.CredentialExchangeImpl {
+				m := &mockCredExchangeApi{}
+				m.isValid = func(ctx context.Context, currentCreds *credentialexchange.AWSCredentials, reloadBeforeTime int) (bool, error) {
+					return false, fmt.Errorf("unable to validate")
 				}
-
 				return m
 			},
 			secretStore: func(t *testing.T) cmdutils.SecretStorageImpl {
@@ -426,7 +360,7 @@ func Test_GetSamlCreds_With(t *testing.T) {
 			ss := tt.secretStore(t)
 
 			err := cmdutils.GetCredsWebUI(
-				context.TODO(), tt.authApi(t), ss, conf,
+				context.TODO(), tt.credExchange(t), ss, conf,
 				web.NewWebConf(tempDir).WithHeadless().WithTimeout(10).WithNoSandbox())
 
 			if tt.expectErr {
@@ -481,7 +415,7 @@ func Test_Get_SSO_Creds_with(t *testing.T) {
 	ttests := map[string]struct {
 		config      func(t *testing.T) credentialexchange.CredentialConfig
 		handler     func(t *testing.T) http.Handler
-		authApi     func(t *testing.T) credentialexchange.AuthSamlApi
+		authApi     func(t *testing.T) cmdutils.CredentialExchangeImpl
 		secretStore func(t *testing.T) cmdutils.SecretStorageImpl
 		expectErr   bool
 		errTyp      error
@@ -491,30 +425,8 @@ func Test_Get_SSO_Creds_with(t *testing.T) {
 				return testConfig()
 			},
 			handler: mockSsoHandler,
-			authApi: func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
-				m.assumeRoleWSaml = func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
-					return &sts.AssumeRoleWithSAMLOutput{}, nil
-				}
-
-				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
-					// t.Error()
-					return &sts.GetCallerIdentityOutput{}, nil
-				}
-				m.assume = func(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
-					return &sts.AssumeRoleOutput{
-						AssumedRoleUser: &types.AssumedRoleUser{
-							AssumedRoleId: aws.String("some-role"),
-							Arn:           aws.String("arn"),
-						},
-						Credentials: &types.Credentials{
-							AccessKeyId:     aws.String("123213"),
-							SecretAccessKey: aws.String("32798hewf"),
-							SessionToken:    aws.String("49hefusdSOM_LONG_TOKEN_HERE"),
-							Expiration:      aws.Time(time.Now().Local().Add(time.Minute * time.Duration(5))),
-						},
-					}, nil
-				}
+			authApi: func(t *testing.T) cmdutils.CredentialExchangeImpl {
+				m := &mockCredExchangeApi{}
 				return m
 			},
 			secretStore: func(t *testing.T) cmdutils.SecretStorageImpl {

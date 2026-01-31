@@ -10,6 +10,7 @@ import (
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/Ensono/eirctl/selfupdate"
 	"github.com/rs/zerolog"
+	"github.com/savioxavier/termlink"
 	"github.com/spf13/cobra"
 )
 
@@ -60,8 +61,8 @@ Stores them under the $HOME/.aws/credentials file under a specified path or retu
 	r.Cmd.PersistentFlags().StringVarP(&rf.CfgSectionName, "cfg-section", "", "", "Config section name to use in the look up of the config ini file (~/.aws-cli-auth.ini) and in the AWS credentials file")
 	// When specifying store in profile the config section name must be provided
 	r.Cmd.MarkFlagsRequiredTogether("store-profile", "cfg-section")
-	r.Cmd.PersistentFlags().IntVarP(&rf.Duration, "max-duration", "d", 900, `Override default max session duration, in seconds, of the role session [900-43200]. 
-NB: This cannot be higher than the 3600 as the API does not allow for AssumeRole for sessions longer than an hour`)
+	r.Cmd.PersistentFlags().IntVarP(&rf.Duration, "max-duration", "d", 900, fmt.Sprintf("Override default max session duration, in seconds, of the role session [900-43200].\nNB: This cannot be higher than the 3600 as the API does not allow for AssumeRole for sessions longer than an hour\nMore info on this and especially around role-chaining\nSee %s",
+		termlink.Link("AWS SDK Duration", "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html#API_AssumeRole_RequestParameters")))
 	r.Cmd.PersistentFlags().BoolVarP(&rf.Verbose, "verbose", "v", false, "Verbose output")
 	r.Cmd.PersistentFlags().StringVarP(&rf.CustomIniLocation, "config-file", "c", "", "Specify the custom location of config file")
 

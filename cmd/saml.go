@@ -123,15 +123,17 @@ func newSamlCmd(r *Root) {
 			}
 
 			if cfg.Region == "" {
+				// cfg.en
 				return fmt.Errorf("unable to deduce AWS region, AWS_REGION, AWS_DEFAULT_REGION, ~/.aws/config default or profile level region must be set")
 			}
 
 			svc := sts.NewFromConfig(cfg)
+			cre := credentialexchange.New(r.logger, svc)
 			webConfig := web.NewWebConf(r.Datadir).
 				WithTimeout(flags.SamlTimeout).
 				WithCustomExecutable(conf.BaseConfig.BrowserExecutablePath)
 
-			return cmdutils.GetCredsWebUI(ctx, svc, secretStore, *conf, webConfig)
+			return cmdutils.GetCredsWebUI(ctx, cre, secretStore, *conf, webConfig)
 
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
