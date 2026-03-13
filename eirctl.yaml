@@ -2,6 +2,10 @@ import:
   - https://raw.githubusercontent.com/Ensono/eirctl/refs/tags/v0.9.7/shared/build/go/eirctl.yaml
 
 contexts:
+  bash:
+    container:
+      name: mirror.gcr.io/bash:5.0.18-alpine3.22
+
   unit:test:
     container:
       name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.3.0
