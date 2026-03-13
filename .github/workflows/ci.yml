@@ -42,6 +42,9 @@ jobs:
       SEMVER: ${{ needs.set-version.outputs.semVer }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Disabling shallow clones is recommended for improving the relevancy of reporting
+          fetch-depth: 0
 
       - uses: ensono/actions/eirctl-setup@v0.3.1
         with: 
@@ -50,8 +53,6 @@ jobs:
 
       - name: prep-git
         run: |
-          echo ${{ secrets.SONAR_TOKEN }} | base64
-
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.email ${{ github.actor }}-ci@gha.org
           git config user.name ${{ github.actor }}

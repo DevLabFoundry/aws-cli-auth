@@ -20,7 +20,7 @@ pipelines:
   gha:unit:test:
     - pipeline: unit:test:run
     - task: sonar:coverage:prep
-      depends_on: test:unit
+      depends_on: unit:test:run
 
   unit:test:run:
     - task: unit:test:prereqs
