@@ -62,7 +62,7 @@ jobs:
 
       - name: Unit Tests
         run: |
-          eirctl run unit:test:run
+          eirctl run pipeline gha:unit:test
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6
@@ -82,3 +82,5 @@ jobs:
           projectBaseDir: .
           args: >
             -Dsonar.projectVersion=${{ needs.set-version.outputs.semVer }}
+            -Dsonar.working.directory=.scannerwork
+            -Dsonar.scm.provider=git

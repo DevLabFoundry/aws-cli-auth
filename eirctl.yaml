@@ -17,6 +17,11 @@ pipelines:
     - task: build:win
       depends_on: build:unix
 
+  gha:unit:test:
+    - pipeline: unit:test:run
+    - task: sonar:coverage:prep
+      depends_on: test:unit
+
   unit:test:run:
     - task: unit:test:prereqs
     - task: unit:test
@@ -142,3 +147,13 @@ tasks:
   build:container:
     description: Builds the docker image
     command: docker build --build-arg Version={{.Version}} --build-arg Revision={{.Revision}} -t eirctl:{{.Version}} .
+
+  sonar:coverage:prep:
+    context: bash
+    command:
+      - | 
+        sed -i 's|github.com/DevLabFoundry/aws-cli-auth||g' .coverage/out
+        echo "Coverage file first 20 lines after conversion:"
+        head -20 .coverage/out
+        echo "Coverage file line count:"
+        wc -l .coverage/out
