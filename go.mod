@@ -9,7 +9,6 @@ require (
 	github.com/aws/smithy-go v1.23.2
 	github.com/go-rod/rod v0.116.2
 	github.com/rezakhademix/govalidator/v2 v2.1.2
-	github.com/rs/zerolog v1.34.0
 	github.com/savioxavier/termlink v1.4.3
 	github.com/spf13/cobra v1.10.1
 	github.com/werf/lockgate v0.1.1
@@ -45,6 +44,7 @@ require (
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/rs/zerolog v1.34.0
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/ysmood/fetchup v0.5.3 // indirect
