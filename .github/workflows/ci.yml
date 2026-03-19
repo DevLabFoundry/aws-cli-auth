@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
   push:
-    branches: [ master, main ]
+    branches: [master, main]
 
 permissions:
   contents: write
@@ -16,7 +16,7 @@ jobs:
   set-version:
     runs-on: ubuntu-22.04
     container:
-      image: mcr.microsoft.com/dotnet/sdk:10.0 
+      image: mcr.microsoft.com/dotnet/sdk:10.0
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
     steps:
@@ -29,7 +29,7 @@ jobs:
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v4
         with:
-          versionSpec: '6.x'
+          versionSpec: "6.x"
       - name: Set SemVer Version
         uses: gittools/actions/gitversion/execute@v4
         id: gitversion
@@ -47,7 +47,7 @@ jobs:
           fetch-depth: 0
 
       - uses: ensono/actions/eirctl-setup@v0.3.1
-        with: 
+        with:
           version: latest
           isPrerelease: false
 
@@ -69,7 +69,7 @@ jobs:
         uses: mikepenz/action-junit-report@v6
         if: success() || failure()
         with:
-          report_paths: '.coverage/report-junit.xml'
+          report_paths: ".coverage/report-junit.xml"
           commit: ${{ github.sha }}
           fail_on_failure: true
           check_name: aws-cli-auth Unit Tests
