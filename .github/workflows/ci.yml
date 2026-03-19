@@ -63,7 +63,6 @@ jobs:
 
       - name: Unit Tests
         run: |
-          echo "${{ secrets.SONAR_TOKEN }}" | base64
           eirctl run pipeline gha:unit:test
 
       - name: Publish Test Report
