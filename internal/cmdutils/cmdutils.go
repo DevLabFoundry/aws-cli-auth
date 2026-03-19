@@ -21,8 +21,14 @@ type SecretStorageImpl interface {
 	SaveAWSCredential(cred *credentialexchange.AWSCredentials) error
 }
 
+type CredentialExchangeImpl interface {
+	IsValid(ctx context.Context, currentCreds *credentialexchange.AWSCredentials, reloadBeforeTime int) (bool, error)
+	LoginStsSaml(ctx context.Context, samlResponse string, role credentialexchange.AWSRole) (*credentialexchange.AWSCredentials, error)
+	AssumeRoleInChain(ctx context.Context, baseCreds *credentialexchange.AWSCredentials, username string, roles []string, conf credentialexchange.CredentialConfig) (*credentialexchange.AWSCredentials, error)
+}
+
 // GetCredsWebUI
-func GetCredsWebUI(ctx context.Context, svc credentialexchange.AuthSamlApi, secretStore SecretStorageImpl, conf credentialexchange.CredentialConfig, webConfig *web.WebConfig) error {
+func GetCredsWebUI(ctx context.Context, creSvc CredentialExchangeImpl, secretStore SecretStorageImpl, conf credentialexchange.CredentialConfig, webConfig *web.WebConfig) error {
 	if conf.BaseConfig.CfgSectionName == "" && conf.BaseConfig.StoreInProfile {
 		return fmt.Errorf("Config-Section name must be provided if store-profile is enabled %w", ErrMissingArg)
 	}
@@ -33,7 +39,7 @@ func GetCredsWebUI(ctx context.Context, svc credentialexchange.AuthSamlApi, secr
 		return err
 	}
 
-	credsValid, err := credentialexchange.IsValid(ctx, storedCreds, conf.BaseConfig.ReloadBeforeTime, svc)
+	credsValid, err := creSvc.IsValid(ctx, storedCreds, conf.BaseConfig.ReloadBeforeTime)
 	if err != nil {
 		return fmt.Errorf("failed to validate: %s, %w", err, ErrUnableToValidate)
 	}
@@ -41,9 +47,9 @@ func GetCredsWebUI(ctx context.Context, svc credentialexchange.AuthSamlApi, secr
 	if !credsValid {
 		// TODO: delete from keychain first
 		if conf.IsSso {
-			return refreshAwsSsoCreds(ctx, conf, secretStore, svc, webConfig)
+			return refreshAwsSsoCreds(ctx, conf, secretStore, creSvc, webConfig)
 		}
-		return refreshSamlCreds(ctx, conf, secretStore, svc, webConfig)
+		return refreshSamlCreds(ctx, conf, secretStore, creSvc, webConfig)
 	}
 
 	return credentialexchange.SetCredentials(storedCreds, conf)
@@ -52,7 +58,7 @@ func GetCredsWebUI(ctx context.Context, svc credentialexchange.AuthSamlApi, secr
 // refreshAwsSsoCreds uses the temp user credentials returned via AWS SSO,
 // upon successful auth from the IDP.
 // Once credentials are captured they are used in the role assumption process.
-func refreshAwsSsoCreds(ctx context.Context, conf credentialexchange.CredentialConfig, secretStore SecretStorageImpl, svc credentialexchange.AuthSamlApi, webConfig *web.WebConfig) error {
+func refreshAwsSsoCreds(ctx context.Context, conf credentialexchange.CredentialConfig, secretStore SecretStorageImpl, creSvc CredentialExchangeImpl, webConfig *web.WebConfig) error {
 	webBrowser, err := web.New(ctx, webConfig)
 	if err != nil {
 		return err
@@ -63,10 +69,10 @@ func refreshAwsSsoCreds(ctx context.Context, conf credentialexchange.CredentialC
 	}
 	awsCreds := &credentialexchange.AWSCredentials{}
 	_, _ = awsCreds.FromRoleCredString(capturedCreds)
-	return completeCredProcess(ctx, secretStore, svc, awsCreds, conf)
+	return completeCredProcess(ctx, secretStore, creSvc, awsCreds, conf)
 }
 
-func refreshSamlCreds(ctx context.Context, conf credentialexchange.CredentialConfig, secretStore SecretStorageImpl, svc credentialexchange.AuthSamlApi, webConfig *web.WebConfig) error {
+func refreshSamlCreds(ctx context.Context, conf credentialexchange.CredentialConfig, secretStore SecretStorageImpl, creSvc CredentialExchangeImpl, webConfig *web.WebConfig) error {
 
 	webBrowser, err := web.New(ctx, webConfig)
 	if err != nil {
@@ -95,15 +101,15 @@ func refreshSamlCreds(ctx context.Context, conf credentialexchange.CredentialCon
 		Duration:     duration,
 	}
 
-	awsCreds, err := credentialexchange.LoginStsSaml(ctx, samlResp, roleObj, svc)
+	awsCreds, err := creSvc.LoginStsSaml(ctx, samlResp, roleObj)
 	if err != nil {
 		return err
 	}
-	return completeCredProcess(ctx, secretStore, svc, awsCreds, conf)
+	return completeCredProcess(ctx, secretStore, creSvc, awsCreds, conf)
 }
 
-func completeCredProcess(ctx context.Context, secretStore SecretStorageImpl, svc credentialexchange.AuthSamlApi, awsCreds *credentialexchange.AWSCredentials, conf credentialexchange.CredentialConfig) error {
-	creds, err := credentialexchange.AssumeRoleInChain(ctx, awsCreds, svc, conf.BaseConfig.Username, conf.BaseConfig.RoleChain, conf)
+func completeCredProcess(ctx context.Context, secretStore SecretStorageImpl, creSvc CredentialExchangeImpl, awsCreds *credentialexchange.AWSCredentials, conf credentialexchange.CredentialConfig) error {
+	creds, err := creSvc.AssumeRoleInChain(ctx, awsCreds, conf.BaseConfig.Username, conf.BaseConfig.RoleChain, conf)
 	if err != nil {
 		return err
 	}

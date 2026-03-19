@@ -39,15 +39,16 @@ Returns the same JSON object as the call to the AWS CLI for any of the sts Assum
 			svc := sts.NewFromConfig(cfg)
 
 			user, err := user.Current()
-
 			if err != nil {
 				return err
 			}
 
+			cre := credentialexchange.New(r.logger, svc)
+
 			if flags.method != "" {
 				switch flags.method {
 				case "WEB_ID":
-					awsCreds, err = credentialexchange.LoginAwsWebToken(ctx, user.Name, svc)
+					awsCreds, err = cre.LoginAwsWebToken(ctx, user.Name)
 					if err != nil {
 						return err
 					}
@@ -69,7 +70,7 @@ Returns the same JSON object as the call to the AWS CLI for any of the sts Assum
 				Duration: r.rootFlags.Duration,
 			}
 
-			awsCreds, err = credentialexchange.AssumeRoleInChain(ctx, awsCreds, svc, config.BaseConfig.Username, config.BaseConfig.RoleChain, conf)
+			awsCreds, err = cre.AssumeRoleInChain(ctx, awsCreds, config.BaseConfig.Username, config.BaseConfig.RoleChain, conf)
 			if err != nil {
 				return err
 			}

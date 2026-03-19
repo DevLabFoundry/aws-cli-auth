@@ -14,24 +14,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/aws/smithy-go"
+	"github.com/rs/zerolog"
 )
 
-type mockAuthApi struct {
+type mockIamSvcApi struct {
+	assumewithwebId func(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error)
 	assumeRoleWSaml func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error)
 	getCallId       func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 	assume          func(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error)
 }
 
-func (m *mockAuthApi) AssumeRoleWithSAML(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
+func (m *mockIamSvcApi) AssumeRoleWithSAML(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
 	return m.assumeRoleWSaml(ctx, params, optFns...)
 }
 
-func (m *mockAuthApi) GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+func (m *mockIamSvcApi) GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 	return m.getCallId(ctx, params, optFns...)
 }
 
-func (m *mockAuthApi) AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
+func (m *mockIamSvcApi) AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
 	return m.assume(ctx, params, optFns...)
+}
+
+func (m *mockIamSvcApi) AssumeRoleWithWebIdentity(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
+	return m.assumewithwebId(ctx, params, optFns...)
 }
 
 var mockSuccessAwsCreds = &types.Credentials{
@@ -43,13 +49,13 @@ var mockSuccessAwsCreds = &types.Credentials{
 
 func Test_AssumeWithSaml_(t *testing.T) {
 	ttests := map[string]struct {
-		srv       func(t *testing.T) credentialexchange.AuthSamlApi
+		srv       func(t *testing.T) *credentialexchange.CredentialExchange
 		expectErr bool
 		errTyp    error
 	}{
 		"succeeds with correct input": {
-			srv: func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.assumeRoleWSaml = func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
 					if *params.RoleArn != "somerole" {
 						t.Errorf("expected role: %s got: %s", "somerole", *params.RoleArn)
@@ -59,21 +65,21 @@ func Test_AssumeWithSaml_(t *testing.T) {
 						Credentials:     mockSuccessAwsCreds,
 					}, nil
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
 			},
 			expectErr: false,
 			errTyp:    nil,
 		},
 		"fails on input": {
-			srv: func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.assumeRoleWSaml = func(ctx context.Context, params *sts.AssumeRoleWithSAMLInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithSAMLOutput, error) {
 					if *params.RoleArn != "somerole" {
 						t.Errorf("expected role: %s got: %s", "somerole", *params.RoleArn)
 					}
 					return nil, fmt.Errorf("some error")
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
 			},
 			expectErr: true,
 			errTyp:    credentialexchange.ErrUnableAssume,
@@ -81,13 +87,12 @@ func Test_AssumeWithSaml_(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			got, err := credentialexchange.LoginStsSaml(context.TODO(), "samlAssertion...372dgh8ybjsdfviwehfiu9rwfe",
+			got, err := tt.srv(t).LoginStsSaml(context.TODO(), "samlAssertion...372dgh8ybjsdfviwehfiu9rwfe",
 				credentialexchange.AWSRole{
 					RoleARN:      "somerole",
 					PrincipalARN: "someprincipal",
 					Duration:     900,
 				},
-				tt.srv(t),
 			)
 
 			if tt.expectErr {
@@ -139,7 +144,7 @@ func (e *smithyErrTyp) ErrorFault() smithy.ErrorFault {
 
 func Test_IsValid_with(t *testing.T) {
 	ttests := map[string]struct {
-		srv          func(t *testing.T) credentialexchange.AuthSamlApi
+		srv          func(t *testing.T) *credentialexchange.CredentialExchange
 		currCred     *credentialexchange.AWSCredentials
 		reloadBefore int
 		expectValid  bool
@@ -147,15 +152,15 @@ func Test_IsValid_with(t *testing.T) {
 		errTyp       error
 	}{
 		"non expired credential with enough time before reload required": {
-			func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
+			func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return &sts.GetCallerIdentityOutput{
 						Account: aws.String("account"),
 						Arn:     aws.String("arn"),
 					}, nil
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
 			},
 			&credentialexchange.AWSCredentials{
 				AWSAccessKey:    "stringjsonAccessKey",
@@ -169,15 +174,15 @@ func Test_IsValid_with(t *testing.T) {
 			nil,
 		},
 		"credentials valid but need to reload before time fails": {
-			func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
+			func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return &sts.GetCallerIdentityOutput{
 						Account: aws.String("account"),
 						Arn:     aws.String("arn"),
 					}, nil
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
 			},
 			&credentialexchange.AWSCredentials{
 				AWSAccessKey:    "stringjsonAccessKey",
@@ -191,15 +196,16 @@ func Test_IsValid_with(t *testing.T) {
 			nil,
 		},
 		"expired credential": {
-			func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
+			func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return nil, &smithyErrTyp{
 						err:     func() string { return "some errr" },
 						errCode: func() string { return "ExpiredToken" },
 					}
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
+
 			},
 			&credentialexchange.AWSCredentials{
 				AWSAccessKey:    "stringjsonAccessKey",
@@ -213,15 +219,16 @@ func Test_IsValid_with(t *testing.T) {
 			nil,
 		},
 		"another error when chekcing credential": {
-			func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
+			func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.getCallId = func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return nil, &smithyErrTyp{
 						err:     func() string { return "some errr" },
 						errCode: func() string { return "SomeOTherErr" },
 					}
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
+
 			},
 			&credentialexchange.AWSCredentials{
 				AWSAccessKey:    "stringjsonAccessKey",
@@ -235,9 +242,9 @@ func Test_IsValid_with(t *testing.T) {
 			credentialexchange.ErrUnableAssume,
 		},
 		"no existing credential": {
-			func(t *testing.T) credentialexchange.AuthSamlApi {
-				m := &mockAuthApi{}
-				return m
+			func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
 			},
 			nil,
 			120,
@@ -248,7 +255,7 @@ func Test_IsValid_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			valid, err := credentialexchange.IsValid(context.TODO(), tt.currCred, tt.reloadBefore, tt.srv(t))
+			valid, err := tt.srv(t).IsValid(context.TODO(), tt.currCred, tt.reloadBefore)
 
 			if tt.expectErr {
 				if err == nil {
@@ -272,32 +279,24 @@ func Test_IsValid_with(t *testing.T) {
 	}
 }
 
-type authWebTokenApi struct {
-	assumewithwebId func(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error)
-}
-
-func (a *authWebTokenApi) AssumeRoleWithWebIdentity(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	return a.assumewithwebId(ctx, params, optFns...)
-}
-
 func Test_LoginAwsWebToken_with(t *testing.T) {
 	ttests := map[string]struct {
-		srv       func(t *testing.T) *authWebTokenApi
+		srv       func(t *testing.T) *credentialexchange.CredentialExchange
 		setup     func() func()
 		currCred  *credentialexchange.AWSCredentials
 		expectErr bool
 		errTyp    error
 	}{
 		"succeeds with correct input": {
-			srv: func(t *testing.T) *authWebTokenApi {
-				a := &authWebTokenApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				a := &mockIamSvcApi{}
 				a.assumewithwebId = func(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 					return &sts.AssumeRoleWithWebIdentityOutput{
 						AssumedRoleUser: &types.AssumedRoleUser{Arn: aws.String("assumedRoleUser")},
 						Credentials:     mockSuccessAwsCreds,
 					}, nil
 				}
-				return a
+				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 			},
 			setup: func() func() {
 				tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
@@ -315,12 +314,12 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 			errTyp:    nil,
 		},
 		"fails on rest call to assume": {
-			srv: func(t *testing.T) *authWebTokenApi {
-				a := &authWebTokenApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				a := &mockIamSvcApi{}
 				a.assumewithwebId = func(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 					return nil, fmt.Errorf("some err")
 				}
-				return a
+				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 			},
 			setup: func() func() {
 				tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
@@ -338,15 +337,15 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 			errTyp:    credentialexchange.ErrUnableAssume,
 		},
 		"fails on missing role env VARS": {
-			srv: func(t *testing.T) *authWebTokenApi {
-				a := &authWebTokenApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				a := &mockIamSvcApi{}
 				a.assumewithwebId = func(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 					return &sts.AssumeRoleWithWebIdentityOutput{
 						AssumedRoleUser: &types.AssumedRoleUser{Arn: aws.String("assumedRoleUser")},
 						Credentials:     mockSuccessAwsCreds,
 					}, nil
 				}
-				return a
+				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 			},
 			setup: func() func() {
 				return func() {}
@@ -356,15 +355,16 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 			errTyp:    credentialexchange.ErrMissingEnvVar,
 		},
 		"fails on missing token file env VARS": {
-			srv: func(t *testing.T) *authWebTokenApi {
-				a := &authWebTokenApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				a := &mockIamSvcApi{}
 				a.assumewithwebId = func(ctx context.Context, params *sts.AssumeRoleWithWebIdentityInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 					return &sts.AssumeRoleWithWebIdentityOutput{
 						AssumedRoleUser: &types.AssumedRoleUser{Arn: aws.String("assumedRoleUser")},
 						Credentials:     mockSuccessAwsCreds,
 					}, nil
 				}
-				return a
+				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
+
 			},
 			setup: func() func() {
 				// tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
@@ -387,7 +387,7 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 			tearDown := tt.setup()
 			defer tearDown()
 
-			got, err := credentialexchange.LoginAwsWebToken(context.TODO(), "username", tt.srv(t))
+			got, err := tt.srv(t).LoginAwsWebToken(context.TODO(), "username")
 
 			if tt.expectErr {
 				if err == nil {
@@ -412,30 +412,31 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 
 func Test_AssumeSpecifiedCreds_with(t *testing.T) {
 	ttests := map[string]struct {
-		srv       func(t *testing.T) *mockAuthApi
+		srv       func(t *testing.T) *credentialexchange.CredentialExchange
 		currCred  *credentialexchange.AWSCredentials
 		expectErr bool
 		errTyp    error
 	}{
 		"successfully passed in creds from somewhere": {
-			srv: func(t *testing.T) *mockAuthApi {
-				m := &mockAuthApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.assume = func(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
 					return &sts.AssumeRoleOutput{
 						AssumedRoleUser: &types.AssumedRoleUser{Arn: aws.String("somearn")},
 						Credentials:     mockSuccessAwsCreds,
 					}, nil
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
 			},
 		},
 		"error on calling AssumeRole API": {
-			srv: func(t *testing.T) *mockAuthApi {
-				m := &mockAuthApi{}
+			srv: func(t *testing.T) *credentialexchange.CredentialExchange {
+				m := &mockIamSvcApi{}
 				m.assume = func(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
 					return nil, fmt.Errorf("some error")
 				}
-				return m
+				return credentialexchange.New(zerolog.Nop().With().Logger(), m)
+
 			},
 			expectErr: true,
 			errTyp:    credentialexchange.ErrUnableAssume,
@@ -443,7 +444,7 @@ func Test_AssumeSpecifiedCreds_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			got, err := credentialexchange.AssumeRoleInChain(context.TODO(), tt.currCred, tt.srv(t), "foo", []string{"barrole"}, credentialexchange.CredentialConfig{Duration: 14400})
+			got, err := tt.srv(t).AssumeRoleInChain(context.TODO(), tt.currCred, "foo", []string{"barrole"}, credentialexchange.CredentialConfig{Duration: 14400})
 
 			if tt.expectErr {
 				if err == nil {

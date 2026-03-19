@@ -1,6 +1,8 @@
 module github.com/DevLabFoundry/aws-cli-auth
 
-go 1.25.4
+go 1.25
+
+toolchain go1.25.7
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.6
@@ -8,6 +10,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.40.2
 	github.com/aws/smithy-go v1.23.2
 	github.com/go-rod/rod v0.116.2
+	github.com/rezakhademix/govalidator/v2 v2.1.2
+	github.com/savioxavier/termlink v1.4.3
 	github.com/spf13/cobra v1.10.1
 	github.com/werf/lockgate v0.1.1
 	github.com/zalando/go-keyring v0.2.6
@@ -15,6 +19,8 @@ require (
 )
 
 require (
+	github.com/mattn/go-colorable v0.1.14 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/schollz/progressbar/v3 v3.18.0 // indirect
@@ -40,6 +46,7 @@ require (
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/rs/zerolog v1.34.0
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/ysmood/fetchup v0.5.3 // indirect
