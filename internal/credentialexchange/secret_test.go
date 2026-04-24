@@ -134,17 +134,14 @@ func Test_SecretStore_AWSCredential_(t *testing.T) {
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
 
-			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test")
+			tmpDir := t.TempDir()
 			_ = os.WriteFile(path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME)), []byte(`
 [role]
 [role.roleArn]
 name = "arn:aws:iam::111122342343:role/DevAdmin"
 `), 0777)
-			os.Setenv("HOME", tmpDir)
-			defer func() {
-				os.Clearenv()
-				os.RemoveAll(tmpDir)
-			}()
+			t.Setenv("HOME", tmpDir)
+			t.Setenv("USERPROFILE", tmpDir)
 
 			crde, err := credentialexchange.NewSecretStore("roleArn", "namer", tmpDir, "test-user")
 			if err != nil {
@@ -211,18 +208,15 @@ func Test_SaveAwsCredential_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test")
+			tmpDir := t.TempDir()
 			iniFile := path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME))
 			_ = os.WriteFile(iniFile, []byte(`
 [role]
 [role.someotherRole]
 name = "arn:aws:iam::111122342343:role/DevAdmin"
 `), 0777)
-			os.Setenv("HOME", tmpDir)
-			defer func() {
-				os.Clearenv()
-				os.RemoveAll(tmpDir)
-			}()
+			t.Setenv("HOME", tmpDir)
+			t.Setenv("USERPROFILE", tmpDir)
 
 			crde, errInit := credentialexchange.NewSecretStore("roleArn", "namer", tmpDir, "test-user")
 
@@ -293,18 +287,15 @@ func Test_ClearAll_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			tmpDir, _ := os.MkdirTemp(os.TempDir(), "saml-cred-test-*")
+			tmpDir := t.TempDir()
 			iniFile := path.Join(tmpDir, fmt.Sprintf(".%s.ini", credentialexchange.SELF_NAME))
 			_ = os.WriteFile(iniFile, []byte(`
 [role]
 [role.someotherRole]
 name = "arn:aws:iam::111122342343:role/DevAdmin"
 `), 0777)
-			os.Setenv("HOME", tmpDir)
-			defer func() {
-				os.Clearenv()
-				os.RemoveAll(tmpDir)
-			}()
+			t.Setenv("HOME", tmpDir)
+			t.Setenv("USERPROFILE", tmpDir)
 
 			crde, errInit := credentialexchange.NewSecretStore("roleArn", "namer", tmpDir, "test-user")
 

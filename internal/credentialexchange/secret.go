@@ -117,8 +117,8 @@ func (s *SecretStore) SaveAWSCredential(cred *AWSCredentials) error {
 func (s *SecretStore) ClearAll(cfg *ini.File) error {
 	srvSections := []string{}
 
-	for _, v := range cfg.Section(INI_CONF_SECTION).ChildSections() {
-		srvSections = append(srvSections, strings.ReplaceAll(v.Name(), fmt.Sprintf("%s.", INI_CONF_SECTION), ""))
+	for _, v := range cfg.Section(INI_ROLE_SECTION).ChildSections() {
+		srvSections = append(srvSections, strings.ReplaceAll(v.Name(), fmt.Sprintf("%s.", INI_ROLE_SECTION), ""))
 	}
 
 	for _, v := range srvSections {

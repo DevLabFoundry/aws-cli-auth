@@ -39,6 +39,8 @@ By default the tool creates the session name - which can be audited including th
 
 ## [Usage](./docs/usage.md)
 
+### [Using Custom Debug Browser](./docs/using-custom-debug-browser.md)
+
 ## Known Issues
 
 - Even though a datadir is created to store the chromium session data it is advised to still open settings and save the username/password manually the first time you are presented with the login screen.
@@ -51,7 +53,7 @@ By default the tool creates the session name - which can be audited including th
 
 ## Contribute
 
-Contributions to the aws-auth-cli package are most welcome from engineers of all backgrounds and skill levels. 
+Contributions to the aws-auth-cli package are most welcome from engineers of all backgrounds and skill levels.
 
 In particular the addition of extra test coverage, code enhacements.
 
@@ -68,5 +70,5 @@ To make a contribution:
 
 Inspired by/Borrowed the design for secretStore from these 2 packages:
 
-- [Hiroyuki Wada](https://github.com/wadahiro) [package](https://github.com/openstandia/aws-cli-oidc) 
+- [Hiroyuki Wada](https://github.com/wadahiro) [package](https://github.com/openstandia/aws-cli-oidc)
 - [Mark Wolfe](https://github.com/wolfeidau) [package](https://github.com/Versent/saml2aws)

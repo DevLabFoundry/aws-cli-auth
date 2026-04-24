@@ -12,6 +12,7 @@ import (
 
 	"github.com/DevLabFoundry/aws-cli-auth/internal/credentialexchange"
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/defaults"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/utils"
 )
@@ -25,7 +26,14 @@ type WebConfig struct {
 	// CustomChromeExecutable can point to a chromium like browser executable
 	// e.g. chrome, chromium, brave, edge, (any other chromium based browser)
 	CustomChromeExecutable string
-	datadir                string
+	// BrowserWSEndpoint connects to an already-running browser via its CDP WebSocket URL
+	// instead of launching a new one. Takes precedence over rod's native -rod=url=<ws> flag.
+	// Useful in WSL: start Chrome on the Windows host with
+	//   chrome.exe --remote-debugging-port=9222
+	// then obtain the URL from http://localhost:9222/json/version (webSocketDebuggerUrl)
+	// and either pass -rod=url=<url> to go test or call WithBrowserWSEndpoint(<url>).
+	BrowserWSEndpoint string
+	datadir           string
 	// timeout value in seconds
 	timeout   int32
 	headless  bool
@@ -34,10 +42,12 @@ type WebConfig struct {
 }
 
 func NewWebConf(datadir string) *WebConfig {
+	wsEndpoint := os.Getenv("ROD_BROWSER_WS_URL")
 	return &WebConfig{
-		datadir:  datadir,
-		headless: false,
-		timeout:  120,
+		datadir:           datadir,
+		headless:          false,
+		timeout:           120,
+		BrowserWSEndpoint: wsEndpoint,
 	}
 }
 
@@ -61,6 +71,14 @@ func (wc *WebConfig) WithCustomExecutable(browserPath string) *WebConfig {
 	return wc
 }
 
+// WithBrowserWSEndpoint connects to an already-running browser via its CDP WebSocket URL
+// rather than launching a new one. See WebConfig.BrowserWSEndpoint for details.
+// Alternatively pass -rod=url=<ws> to go test to use rod's native flag.
+func (wc *WebConfig) WithBrowserWSEndpoint(wsURL string) *WebConfig {
+	wc.BrowserWSEndpoint = wsURL
+	return wc
+}
+
 type Web struct {
 	conf     *WebConfig
 	launcher *launcher.Launcher
@@ -70,24 +88,39 @@ type Web struct {
 
 // New returns an initialised instance of Web struct
 func New(ctx context.Context, conf *WebConfig) (*Web, error) {
-	l := BuildLauncher(ctx, conf)
-
-	url, err := l.Launch()
-	if err != nil {
-		return nil, err
+	// Prefer an explicitly configured endpoint, then rod's native defaults.URL
+	// (set via -rod=url=<ws> when running go test).
+	wsEndpoint := conf.BrowserWSEndpoint
+	if wsEndpoint == "" {
+		wsEndpoint = defaults.URL
 	}
+
+	var l *launcher.Launcher
+	var controlURL string
+
+	if wsEndpoint != "" {
+		// Connect to an already-running browser (e.g. Chrome on the Windows host
+		// when running inside WSL). No local launcher is needed.
+		controlURL = wsEndpoint
+	} else {
+		var err error
+		l = BuildLauncher(ctx, conf)
+		controlURL, err = l.Launch()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	browser := rod.New().
-		ControlURL(url).
+		ControlURL(controlURL).
 		MustConnect().NoDefaultDevice()
 
-	web := &Web{
+	return &Web{
 		conf:     conf,
 		launcher: l,
 		browser:  browser,
 		ctx:      ctx,
-	}
-
-	return web, nil
+	}, nil
 }
 
 func BuildLauncher(ctx context.Context, conf *WebConfig) *launcher.Launcher {
@@ -234,13 +267,18 @@ func (web *Web) MustClose() {
 	// this ensures that the browser remembers the credentials
 	// and anything else done during the sign up process - e.g. extension installation
 	// web.launcher.Cleanup()
-	// swallows errors here - until a structured logger
-	_ = web.browser.Close()
-	utils.Sleep(0.5)
-	web.launcher.Kill()
-	// remove process just in case
-	// os.Process is cross platform safe way to remove a process
-	if osprocess, err := os.FindProcess(web.launcher.PID()); err == nil && osprocess != nil {
-		_ = osprocess.Kill()
+
+	// Only close the browser if we launched it ourselves.
+	// When connected to an existing browser (launcher == nil, e.g. via ROD_BROWSER_WS_URL
+	// or -rod=url=...), calling browser.Close() would destroy the remote browser window.
+	if web.launcher != nil {
+		_ = web.browser.Close()
+		utils.Sleep(0.5)
+		web.launcher.Kill()
+		// remove process just in case
+		// os.Process is cross platform safe way to remove a process
+		if osprocess, err := os.FindProcess(web.launcher.PID()); err == nil && osprocess != nil {
+			_ = osprocess.Kill()
+		}
 	}
 }

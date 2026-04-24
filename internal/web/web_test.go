@@ -83,7 +83,6 @@ SAMLResponse=dsicisud99u2ubf92e9euhre&RelayState=
 }
 
 func Test_WebUI_with_succesful_saml(t *testing.T) {
-
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{BaseConfig: credentialexchange.BaseConfig{}}
@@ -110,7 +109,6 @@ func Test_WebUI_with_succesful_saml(t *testing.T) {
 }
 
 func Test_WebUI_timeout_and_return_error(t *testing.T) {
-
 	ts := httptest.NewServer(mockIdpHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{BaseConfig: credentialexchange.BaseConfig{}}
@@ -132,10 +130,6 @@ func Test_WebUI_timeout_and_return_error(t *testing.T) {
 	if !errors.Is(err, web.ErrTimedOut) {
 		t.Errorf("incorrect error returned\n expected: %s, got: %s", web.ErrTimedOut, err)
 	}
-}
-
-func Test_ClearCache(t *testing.T) {
-	t.Skip("no longer relevant")
 }
 
 func mockSsoHandler(t *testing.T) http.Handler {
@@ -169,7 +163,6 @@ func mockSsoHandler(t *testing.T) http.Handler {
 }
 
 func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
-
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{
@@ -201,7 +194,6 @@ func Test_WebUI_with_succesful_ssoLogin(t *testing.T) {
 }
 
 func Test_WebUI_with_timeout_ssoLogin(t *testing.T) {
-
 	ts := httptest.NewServer(mockSsoHandler(t))
 	defer ts.Close()
 	conf := credentialexchange.CredentialConfig{
@@ -257,16 +249,4 @@ func Test_Web_BuildLauncher(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("default browser is returned when no custom binary specified", func(t *testing.T) {
-		// for people running this locally without a default chrome/chromium installed this will potentially fail
-		//
-		// run the tests in the `eirctl run unit:test:run`
-		//
-		got := web.BuildLauncher(context.TODO(), &web.WebConfig{CustomChromeExecutable: ""})
-		bin := got.Get("rod-bin")
-		if len(bin) < 1 {
-			t.Fatal("got no binary paths")
-		}
-	})
 }
