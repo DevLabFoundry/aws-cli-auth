@@ -8,7 +8,8 @@ contexts:
 
   unit:test:
     container:
-      name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.17.2
+      # This container is from './hack/Dockerfile.ci'
+      name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.3.0
       entrypoint: /usr/bin/env
     envfile:
       exclude:
@@ -159,7 +160,7 @@ tasks:
   sonar:coverage:prep:
     context: bash
     command:
-      - | 
+      - |
         sed -i 's|github.com/DevLabFoundry/aws-cli-auth/||g' .coverage/out
         echo "Coverage file first 20 lines after conversion:"
         head -20 .coverage/out
