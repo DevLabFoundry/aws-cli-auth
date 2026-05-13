@@ -8,6 +8,7 @@ contexts:
 
   unit:test:
     container:
+      # This container is from './hack/Dockerfile.ci'
       name: ghcr.io/devlabfoundry/aws-cli-auth-ci:0.3.0
       entrypoint: /usr/bin/env
     envfile:
