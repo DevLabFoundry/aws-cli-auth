@@ -78,8 +78,6 @@ tasks:
         mkdir -p .coverage
         export GOPATH="${PWD}/.deps" GOBIN="${PWD}/.deps/bin"
         go install github.com/jstemmer/go-junit-report@v1.0.0
-        go install github.com/axw/gocov/gocov@v1.2.1
-        go install github.com/AlekSi/gocov-xml@v1.2.0
 
   clean:dir:
     command:
