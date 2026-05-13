@@ -1,5 +1,5 @@
 import:
-  - https://raw.githubusercontent.com/Ensono/eirctl/e87c20ed9740d099c49c632ba113fb29248ccef6/shared/build/go/eirctl.yaml
+  - https://raw.githubusercontent.com/Ensono/eirctl/refs/tags/v0.11.0/shared/build/go/eirctl.yaml
 
 contexts:
   bash:
