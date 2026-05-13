@@ -68,7 +68,6 @@ tasks:
       export GOPATH=$PWD/.deps GOBIN=$PWD/.deps/bin
       CGO_ENABLED=1 go test ./... -v -coverpkg=github.com/DevLabFoundry/... -race -mod=readonly -timeout=1m -shuffle=on -buildvcs=false -coverprofile=.coverage/out -count=1 -run=$GO_TEST_RUN_ARGS | tee .coverage/test.out
       cat .coverage/test.out | .deps/bin/go-junit-report > .coverage/report-junit.xml
-      .deps/bin/gocov convert .coverage/out | .deps/bin/gocov-xml > .coverage/report-cobertura.xml
 
   unit:test:prereqs:
     description: Installs coverage and junit tools
