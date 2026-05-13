@@ -2,7 +2,7 @@ module github.com/DevLabFoundry/aws-cli-auth
 
 go 1.26
 
-toolchain go1.26.2
+toolchain go1.26.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.6
@@ -30,14 +30,12 @@ require (
 )
 
 require (
-	al.essio.dev/pkg/shellescape v1.6.0 // indirect
 	dario.cat/mergo v1.0.2
 	github.com/Ensono/eirctl v0.10.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.15 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.22 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.22 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.22 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.22 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.16 // indirect
