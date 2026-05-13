@@ -97,9 +97,26 @@ func ReloadBeforeExpiry(expiry time.Time, reloadBeforeSeconds int) bool {
 	return diff.Seconds() < float64(reloadBeforeSeconds)
 }
 
+// EnsureParentSections guarantees that every dotted child section in the file
+// (e.g. [config.foo] or [role.my-role]) has an explicit parent section.
+// gopkg.in/ini.v1 does not auto-create parent sections, so HasSection("config")
+// returns false when only [config.foo] is present, breaking child-section
+// lookups. Calling this once after ini.Load normalises the file in memory
+// without touching the file on disk.
+func EnsureParentSections(cfg *ini.File) {
+	for _, s := range cfg.Sections() {
+		if idx := strings.LastIndex(s.Name(), "."); idx > 0 {
+			parent := s.Name()[:idx]
+			if !cfg.HasSection(parent) {
+				_, _ = cfg.NewSection(parent)
+			}
+		}
+	}
+}
+
 func LoadCliConfig(cfg *ini.File, cfgSection string) (*CredentialConfig, error) {
-	if cfg.HasSection("config") {
-		configSection, err := cfg.GetSection("config")
+	if cfg.HasSection(INI_CONFIG_SECTION) {
+		configSection, err := cfg.GetSection(INI_CONFIG_SECTION)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +125,7 @@ func LoadCliConfig(cfg *ini.File, cfgSection string) (*CredentialConfig, error) 
 		_ = configSection.MapTo(mainConfig)
 		_ = configSection.MapTo(mainBaseConfig)
 		for _, section := range configSection.ChildSections() {
-			if fmt.Sprintf("config.%s", cfgSection) == section.Name() {
+			if fmt.Sprintf("%s.%s", INI_CONFIG_SECTION, cfgSection) == section.Name() {
 				sectionBaseConfig := &BaseConfig{}
 				sectionConfig := &CredentialConfig{}
 				_ = section.MapTo(sectionConfig)
@@ -126,7 +143,7 @@ func LoadCliConfig(cfg *ini.File, cfgSection string) (*CredentialConfig, error) 
 
 // WriteIniSection update ini sections in own config file
 func WriteIniSection(role string) error {
-	section := fmt.Sprintf("%s.%s", INI_CONF_SECTION, RoleKeyConverter(role))
+	section := fmt.Sprintf("%s.%s", INI_ROLE_SECTION, RoleKeyConverter(role))
 	cfg, err := ini.Load(ConfigIniFile(""))
 	if err != nil {
 		return fmt.Errorf("fail to read Ini file: %v, %w", err, ErrConfigFailure)

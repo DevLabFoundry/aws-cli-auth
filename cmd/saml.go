@@ -167,11 +167,11 @@ You should find it in the IAM portal e.g.: arn:aws:iam::1234567891012:saml-provi
 	sc.cmd.PersistentFlags().StringVarP(&flags.SsoRegion, "sso-region", "", "eu-west-1", "If using SSO, you must set the region")
 	sc.cmd.PersistentFlags().StringVarP(&flags.CustomExecutablePath, "executable-path", "", "", `Custom path to an executable
 
-This needs to be a chromium like executable - e.g. Chrome, Chromium, Brave, Edge. 
+This needs to be a chromium like executable - e.g. Chrome, Chromium, Brave, Edge.
 
 You can find out the path by opening your browser and typing in chrome|brave|edge://version
 `)
-	sc.cmd.PersistentFlags().BoolVarP(&flags.IsSso, "is-sso", "", false, `Enables the new AWS User portal login. 
+	sc.cmd.PersistentFlags().BoolVarP(&flags.IsSso, "is-sso", "", false, `Enables the new AWS User portal login.
 If this flag is specified the --sso-role must also be specified.`)
 	sc.cmd.PersistentFlags().IntVarP(&flags.ReloadBeforeTime, "reload-before", "", 0, "Triggers a credentials refresh before the specified max-duration. Value provided in seconds. Should be less than the max-duration of the session")
 	//
@@ -189,12 +189,17 @@ func samlInitConfig(customPath string) (*ini.File, error) {
 	configPath := credentialexchange.ConfigIniFile(customPath)
 	if _, err := os.Stat(configPath); err != nil {
 		// creating a file
-		rolesInit := []byte(fmt.Sprintf("; aws-cli-auth generated [role] section\n[%s]\n", credentialexchange.INI_CONF_SECTION))
+		rolesInit := []byte(fmt.Sprintf("; aws-cli-auth generated [role] section\n[%s]\n", credentialexchange.INI_ROLE_SECTION))
 		if err := os.WriteFile(configPath, rolesInit, 0644); err != nil {
 			return nil, err
 		}
 	}
-	return ini.Load(configPath)
+	cfg, err := ini.Load(configPath)
+	if err != nil {
+		return nil, err
+	}
+	credentialexchange.EnsureParentSections(cfg)
+	return cfg, nil
 }
 
 func ConfigFromFlags(fileConfig *credentialexchange.CredentialConfig, rf *RootCmdFlags, sf *SamlCmdFlags, user string) error {

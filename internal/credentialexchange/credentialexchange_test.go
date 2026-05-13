@@ -282,7 +282,7 @@ func Test_IsValid_with(t *testing.T) {
 func Test_LoginAwsWebToken_with(t *testing.T) {
 	ttests := map[string]struct {
 		srv       func(t *testing.T) *credentialexchange.CredentialExchange
-		setup     func() func()
+		setup     func(t *testing.T) func()
 		currCred  *credentialexchange.AWSCredentials
 		expectErr bool
 		errTyp    error
@@ -298,16 +298,13 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 				}
 				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 			},
-			setup: func() func() {
-				tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
+			setup: func(t *testing.T) func() {
+				tmpDir := t.TempDir()
 				tokenFile := path.Join(tmpDir, ".ignore-token")
 				_ = os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
-				_ = os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
-				_ = os.Setenv("AWS_ROLE_ARN", "somerole")
-				return func() {
-					os.Clearenv()
-					_ = os.RemoveAll(tmpDir)
-				}
+				t.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
+				t.Setenv("AWS_ROLE_ARN", "somerole")
+				return func() {}
 			},
 			currCred:  mockSuccessCreds,
 			expectErr: false,
@@ -321,16 +318,13 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 				}
 				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 			},
-			setup: func() func() {
-				tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
+			setup: func(t *testing.T) func() {
+				tmpDir := t.TempDir()
 				tokenFile := path.Join(tmpDir, ".ignore-token")
 				_ = os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
-				_ = os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
-				_ = os.Setenv("AWS_ROLE_ARN", "somerole")
-				return func() {
-					os.Clearenv()
-					_ = os.RemoveAll(tmpDir)
-				}
+				t.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
+				t.Setenv("AWS_ROLE_ARN", "somerole")
+				return func() {}
 			},
 			currCred:  mockSuccessCreds,
 			expectErr: true,
@@ -347,7 +341,7 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 				}
 				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 			},
-			setup: func() func() {
+			setup: func(t *testing.T) func() {
 				return func() {}
 			},
 			currCred:  mockSuccessCreds,
@@ -366,16 +360,9 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 				return credentialexchange.New(zerolog.Nop().With().Logger(), a)
 
 			},
-			setup: func() func() {
-				// tmpDir, _ := os.MkdirTemp(os.TempDir(), "web-id")
-				// tokenFile := path.Join(tmpDir, ".ignore-token")
-				// os.WriteFile(tokenFile, []byte(`sometoikonsebjsxd`), 0777)
-				// os.Setenv(credentialexchange.WEB_ID_TOKEN_VAR, tokenFile)
-				_ = os.Setenv("AWS_ROLE_ARN", "somerole")
-				return func() {
-					os.Clearenv()
-					// os.RemoveAll(tmpDir)
-				}
+			setup: func(t *testing.T) func() {
+				t.Setenv("AWS_ROLE_ARN", "somerole")
+				return func() {}
 			},
 			currCred:  mockSuccessCreds,
 			expectErr: true,
@@ -384,7 +371,7 @@ func Test_LoginAwsWebToken_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			tearDown := tt.setup()
+			tearDown := tt.setup(t)
 			defer tearDown()
 
 			got, err := tt.srv(t).LoginAwsWebToken(context.TODO(), "username")

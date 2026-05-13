@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -33,8 +32,8 @@ func TestCreateEntryInIni(t *testing.T) {
 		t.Fatalf("Fail to read file: %v", err)
 	}
 
-	section := cfg.Section(credentialexchange.INI_CONF_SECTION) //
-	if !cfg.HasSection(fmt.Sprintf("%s.%s", credentialexchange.INI_CONF_SECTION, credentialexchange.RoleKeyConverter(roleTest))) {
+	section := cfg.Section(credentialexchange.INI_ROLE_SECTION) //
+	if !cfg.HasSection(fmt.Sprintf("%s.%s", credentialexchange.INI_ROLE_SECTION, credentialexchange.RoleKeyConverter(roleTest))) {
 		t.Errorf("section NOT Exists")
 	}
 	roles := section.ChildSections()
@@ -75,24 +74,19 @@ func TestReloadBeforeExpiryNeedToRefresh(t *testing.T) {
 
 func Test_HomeDirOverwritten(t *testing.T) {
 	ttests := map[string]struct {
-		setUpCleanUp func() func()
+		setUpCleanUp func(t *testing.T) func()
 	}{
 		"test1": {
-			setUpCleanUp: func() func() {
-				orignalEnv := os.Environ()
-				os.Setenv("HOME", "./.ignore-delete")
-				return func() {
-					for _, e := range orignalEnv {
-						pair := strings.SplitN(e, "=", 2)
-						_ = os.Setenv(pair[0], pair[1])
-					}
-				}
+			setUpCleanUp: func(t *testing.T) func() {
+				t.Setenv("HOME", "./.ignore-delete")
+				t.Setenv("USERPROFILE", "./.ignore-delete")
+				return func() {}
 			},
 		},
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			cleanUp := tt.setUpCleanUp()
+			cleanUp := tt.setUpCleanUp(t)
 			defer cleanUp()
 			got := credentialexchange.HomeDir()
 			if got != "./.ignore-delete" {
@@ -139,19 +133,17 @@ func Test_InsertIntoRoleSlice_with(t *testing.T) {
 
 func Test_SetCredentials_with(t *testing.T) {
 	ttests := map[string]struct {
-		setup     func() func()
+		setup     func(t *testing.T) func()
 		conf      credentialexchange.CredentialConfig
 		cred      func() *credentialexchange.AWSCredentials
 		expectErr bool
 	}{
 		"write to creds file": {
-			setup: func() func() {
-				tempDir, _ := os.MkdirTemp(os.TempDir(), "set-creds-tester")
-				os.Setenv("HOME", tempDir)
-				return func() {
-					os.Clearenv()
-					_ = os.RemoveAll(tempDir)
-				}
+			setup: func(t *testing.T) func() {
+				tempDir := t.TempDir()
+				t.Setenv("HOME", tempDir)
+				t.Setenv("USERPROFILE", tempDir)
+				return func() {}
 			},
 			cred: func() *credentialexchange.AWSCredentials {
 				return mockSuccessCreds
@@ -164,13 +156,11 @@ func Test_SetCredentials_with(t *testing.T) {
 			},
 		},
 		"write to stdout": {
-			setup: func() func() {
-				tempDir, _ := os.MkdirTemp(os.TempDir(), "set-creds-tester")
-				os.Setenv("HOME", tempDir)
-				return func() {
-					os.Clearenv()
-					_ = os.RemoveAll(tempDir)
-				}
+			setup: func(t *testing.T) func() {
+				tempDir := t.TempDir()
+				t.Setenv("HOME", tempDir)
+				t.Setenv("USERPROFILE", tempDir)
+				return func() {}
 			},
 			cred: func() *credentialexchange.AWSCredentials {
 				return mockSuccessCreds
@@ -183,15 +173,13 @@ func Test_SetCredentials_with(t *testing.T) {
 			},
 		},
 		"write using AWS_CREDENTIALS_FILE": {
-			setup: func() func() {
-				tempDir, _ := os.MkdirTemp(os.TempDir(), "set-creds-tester")
-				_ = os.Setenv("HOME", tempDir)
+			setup: func(t *testing.T) func() {
+				tempDir := t.TempDir()
+				t.Setenv("HOME", tempDir)
+				t.Setenv("USERPROFILE", tempDir)
 				_ = os.WriteFile(path.Join(tempDir, "creds"), []byte(``), 0777)
-				_ = os.Setenv("AWS_SHARED_CREDENTIALS_FILE", path.Join(tempDir, "creds"))
-				return func() {
-					os.Clearenv()
-					_ = os.RemoveAll(tempDir)
-				}
+				t.Setenv("AWS_SHARED_CREDENTIALS_FILE", path.Join(tempDir, "creds"))
+				return func() {}
 			},
 			cred: func() *credentialexchange.AWSCredentials {
 				return mockSuccessCreds
@@ -233,7 +221,7 @@ func Test_SetCredentials_with(t *testing.T) {
 	}
 	for name, tt := range ttests {
 		t.Run(name, func(t *testing.T) {
-			cleanUp := tt.setup()
+			cleanUp := tt.setup(t)
 
 			defer cleanUp()
 
@@ -287,5 +275,78 @@ provider-url = https://accounts.google.com/o/saml2/initsso?idpid=some-foo-id123&
 	}
 	if cfg.ProviderUrl != "https://accounts.google.com/o/saml2/initsso?idpid=some-foo-id123&forceauthn=false" {
 		t.Error()
+	}
+}
+
+// Test_Helper_LoadCliConfig_NoRootSection verifies that a config file containing
+// only a named sub-section (e.g. [config.foo]) without a root [config] section
+// is loaded correctly after EnsureParentSections normalises the file.
+func Test_Helper_LoadCliConfig_NoRootSection(t *testing.T) {
+	f, err := os.CreateTemp(os.TempDir(), "ini-conf-norootsection-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	f.Write([]byte(`
+[config.specific_section]
+role = arn:aws:iam::1233444555:role/SSO-admin
+principal = arn:aws:iam::1233444555:saml-provider/GoogleIdP
+provider-url = https://accounts.google.com/o/saml2/initsso?idpid=some-foo-id123&forceauthn=false
+duration = 3600
+browser-executable-path = "/my/Browser"
+`))
+	iniFile, err := ini.Load(credentialexchange.ConfigIniFile(f.Name()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentialexchange.EnsureParentSections(iniFile)
+	cfg, err := credentialexchange.LoadCliConfig(iniFile, "specific_section")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Duration != 3600 {
+		t.Errorf("expected duration 3600, got %d", cfg.Duration)
+	}
+	if cfg.BaseConfig.Role != "arn:aws:iam::1233444555:role/SSO-admin" {
+		t.Errorf("expected role arn, got %q", cfg.BaseConfig.Role)
+	}
+	if cfg.BaseConfig.BrowserExecutablePath != "/my/Browser" {
+		t.Errorf("expected browser path, got %q", cfg.BaseConfig.BrowserExecutablePath)
+	}
+	if cfg.ProviderUrl != "https://accounts.google.com/o/saml2/initsso?idpid=some-foo-id123&forceauthn=false" {
+		t.Errorf("expected provider-url, got %q", cfg.ProviderUrl)
+	}
+}
+
+// Test_EnsureParentSections verifies that EnsureParentSections creates blank
+// parent sections for all dotted child sections, covering both [config.*] and
+// [role.*] shapes used in the config file.
+func Test_EnsureParentSections(t *testing.T) {
+	content := []byte(`
+[config.foo]
+provider-url = https://example.com
+
+[role.arn_aws_iam__123456789_role__My-Role]
+name = arn:aws:iam::123456789:role/My-Role
+`)
+	iniFile, err := ini.Load(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if iniFile.HasSection("config") {
+		t.Fatal("precondition: [config] should not exist before EnsureParentSections")
+	}
+	if iniFile.HasSection("role") {
+		t.Fatal("precondition: [role] should not exist before EnsureParentSections")
+	}
+
+	credentialexchange.EnsureParentSections(iniFile)
+
+	if !iniFile.HasSection("config") {
+		t.Error("[config] parent section was not created")
+	}
+	if !iniFile.HasSection("role") {
+		t.Error("[role] parent section was not created")
 	}
 }

@@ -5,18 +5,18 @@ on:
     workflows: ['CI']
     types:
       - completed
-    branches: 
+    branches:
       - master
 
 permissions:
   contents: write
-  
+
 jobs:
   set-version:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.head_branch == 'master' }}
     container:
-      image: mcr.microsoft.com/dotnet/sdk:6.0 
+      image: mcr.microsoft.com/dotnet/sdk:6.0
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
     steps:
@@ -36,7 +36,7 @@ jobs:
         id: gitversion
 
       - name: echo VERSIONS
-        run: | 
+        run: |
           echo "REVISION  -> $GITHUB_SHA"
           echo "VERSION -> $GITVERSION_SEMVER"
 
@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 1
 
       - uses: ensono/actions/eirctl-setup@v0.3.1
-        with: 
+        with:
           version: latest
           isPrerelease: false
 
@@ -66,7 +66,7 @@ jobs:
 
       - name: Build binary
         run: |
-          eirctl run pipeline bin:release --set Version=${SEMVER} --set Revision=$GITHUB_SHA 
+          eirctl run pipeline bin:release --set Version=${SEMVER} --set Revision=$GITHUB_SHA
 
       - name: Release
         uses: softprops/action-gh-release@v2.2.1
